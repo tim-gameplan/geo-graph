@@ -1,1 +1,3 @@
-# geo-graph
+# geo-graphing pipeline
+
+Initial scaffold.

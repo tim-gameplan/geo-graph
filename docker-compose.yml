@@ -1,0 +1,24 @@
+version: "3.9"
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: gis
+      POSTGRES_PASSWORD: gis
+      POSTGRES_DB: gis
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+  pgadmin:
+    image: dpage/pgadmin4:8
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+  valhalla-build:
+    build: ./docker/valhalla
+    entrypoint: ["sleep","infinity"]
+volumes:
+  pgdata:
