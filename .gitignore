@@ -174,3 +174,9 @@ cython_debug/
 .pypirc
 
 .DS_store
+
+# OSM PBF data files
+*.osm.pbf
+
+# GraphML output files
+*.graphml

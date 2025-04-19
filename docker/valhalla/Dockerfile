@@ -1,1 +1,1 @@
-FROM valhalla/valhalla:latest
+FROM ghcr.io/valhalla/valhalla:latest
