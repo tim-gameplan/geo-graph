@@ -45,6 +45,7 @@ This project creates a complete pipeline for:
 - **Customizable terrain grid** - Adjustable hex grid density (coarse, default, fine)
 - **Efficient slicing** - Export only the subgraph reachable within a specified time
 - **Multiple export formats** - GraphML for analysis, Valhalla tiles for routing
+- **OSM attribute preservation** - Retain OSM tags like highway type, names, and surface in the graph
 - **Benchmarking tools** - Memory and performance profiling for different AOI sizes
 - **Docker-based development** - Easy setup with PostgreSQL, PostGIS, and pgAdmin
 
@@ -74,6 +75,10 @@ python tools/export_slice.py slice \
        --lon -93.63 --lat 41.99 \
        --minutes 60 \
        --outfile ia_central.graphml
+
+# Reset the database and rerun the pipeline (if needed)
+python scripts/reset_database.py --reset-all
+python scripts/run_pipeline.py
 ```
 
 For detailed instructions, see [Quick Start Guide](docs/quick_start.md).
@@ -92,6 +97,7 @@ For detailed instructions, see [Quick Start Guide](docs/quick_start.md).
 
 - [Quick Start Guide](docs/quick_start.md) - Get up and running quickly
 - [Project Notes](docs/project_notes.md) - Comprehensive documentation
+- [OSM Attributes Guide](docs/osm_attributes.md) - Preserving OSM attributes in the graph
 - [Project Plan](docs/terrain_graph_project_plan.md) - Project timeline and deliverables
 - [Code Audit](docs/code_audit.md) - Analysis of existing codebase
 

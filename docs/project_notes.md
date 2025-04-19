@@ -151,8 +151,63 @@ This project creates a terrain graph system for routing and analysis. It loads O
    python tools/export_slice_simple.py --lon -93.6 --lat 41.6 --radius 5 --outfile iowa_slice.graphml
    ```
 
+## Database Reset and Pipeline Rerun
+
+To reset the database and rerun the pipeline, you can use the following scripts:
+
+### Reset Database
+
+The `reset_database.py` script provides options for resetting the database:
+
+```bash
+# Reset the entire database (drops and recreates the database)
+python scripts/reset_database.py --reset-all
+
+# Reset only the derived tables (preserves the OSM data)
+python scripts/reset_database.py --reset-derived
+
+# Reset and reimport OSM data
+python scripts/reset_database.py --reset-all --import data/iowa-latest.osm.pbf
+```
+
+The script performs the following steps:
+1. Terminates all connections to the database
+2. Drops the database (if --reset-all is specified)
+3. Creates a new database
+4. Creates the necessary extensions (postgis and pgrouting)
+5. Imports OSM data (if --import is specified)
+
+### Run Pipeline
+
+The `run_pipeline.py` script runs the complete pipeline:
+
+```bash
+# Run the complete pipeline
+python scripts/run_pipeline.py
+
+# Run the pipeline with preserved OSM attributes
+python scripts/run_pipeline.py --preserve-attributes
+
+# Run the pipeline and export a slice
+python scripts/run_pipeline.py --export --lon -93.63 --lat 41.99 --radius 5 --output test_slice.graphml
+```
+
+The script executes the following SQL scripts in sequence:
+1. derive_road_and_water_fixed.sql - Extract road and water features from OSM data
+2. build_water_buffers_simple.sql - Create buffers around water features
+3. create_grid_profile.sql - Create grid profile table
+4. build_terrain_grid_simple.sql - Create a hexagonal grid covering the area
+5. create_edge_tables.sql - Create edge tables for the unified graph
+6. add_source_target_columns.sql - Add source and target columns to edge tables
+7. refresh_topology_simple.sql - Create topology for the unified graph
+8. create_unified_edges.sql - Combine all edge tables into a unified graph
+
 ## Notes
 
 - The OSM data is in SRID 3857 (Web Mercator), but we need to transform it to SRID 4326 (WGS84) for geographic calculations.
 - The source and target columns in the edge tables are initially NULL, but we generate them on-the-fly when exporting a graph slice.
 - The cost values are based on travel time estimates: 18 m/s (≈ 40 mph) for roads, 1000.0 for water (to discourage crossing), and 1.0 for terrain (placeholder for slope-based cost).
+- When resetting the database, make sure there are no active connections to the database. You can terminate all connections with:
+  ```sql
+  SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'gis' AND pid <> pg_backend_pid();
+  ```

@@ -255,67 +255,113 @@ docker compose exec db psql -U gis -d gis -f /tmp/create_unified_edges.sql
 # Create a simplified export script
 cat > tools/export_slice_simple.py << 'EOF'
 """Export AOI slice as GraphML."""
-import json, typer, os, networkx as nx
+import json typer os networkx as nx
 import geopandas as gpd
 from sqlalchemy import create_engine
 
 def connect():
-    return create_engine(os.getenv("PG_URL", "postgresql+psycopg://gis:gis@localhost:5432/gis"))
+    return create_engine(os.getenv("PG_URL" "postgresql+psycopg://gis:gis@localhost:5432/gis"))
 
 def main(
-    longitude: float = typer.Option(..., "--lon", help="Longitude coordinate"),
-    latitude: float = typer.Option(..., "--lat", help="Latitude coordinate"),
-    radius_km: float = typer.Option(10, "--radius", help="Radius in kilometers"),
-    outfile: str = typer.Option("aoi.graphml", "--outfile", help="Output GraphML file")
+    longitude: float = typer.Option(... "--lon" help="Longitude coordinate")
+    latitude: float = typer.Option(... "--lat" help="Latitude coordinate")
+    radius_km: float = typer.Option(10 "--radius" help="Radius in kilometers")
+    outfile: str = typer.Option("aoi.graphml" "--outfile" help="Output GraphML file")
 ):
     """Export sub‑graph around the specified coordinates within radius_km."""
     engine = connect()
-    
+
     # Get edges within radius_km of the point and generate source/target nodes
     edges = gpd.read_postgis(
         f"""
-        SELECT 
-            id,
-            ST_StartPoint(geom) AS start_point,
-            ST_EndPoint(geom) AS end_point,
-            cost,
+        SELECT
+            id
+            ST_StartPoint(geom) AS start_point
+            ST_EndPoint(geom) AS end_point
+            cost
             geom
-        FROM unified_edges 
+        FROM unified_edges
         WHERE ST_DWithin(
-            ST_Transform(geom, 4326)::geography, 
-            ST_SetSRID(ST_MakePoint({longitude}, {latitude}), 4326)::geography, 
+            ST_Transform(geom 4326)::geography
+            ST_SetSRID(ST_MakePoint({longitude} {latitude}) 4326)::geography
             {radius_km * 1000}
         )
-        """,
-        engine, 
+        """
+        engine
         geom_col='geom'
     )
-    
+
     # Generate source and target IDs based on the start and end points
-    edges['source'] = edges.apply(lambda row: f"node_{hash(str(row.start_point))}", axis=1)
-    edges['target'] = edges.apply(lambda row: f"node_{hash(str(row.end_point))}", axis=1)
-    
+    edges['source'] = edges.apply(lambda row: f"node_{hash(str(row.start_point))}" axis=1)
+    edges['target'] = edges.apply(lambda row: f"node_{hash(str(row.end_point))}" axis=1)
+
     # Create a graph from the edges
     G = nx.from_pandas_edgelist(
-        edges, 
-        'source', 'target', 
-        edge_attr=['id', 'cost'], 
+        edges
+        'source' 'target'
+        edge_attr=['id' 'cost']
         create_using=nx.DiGraph
     )
-    
+
     # Write the graph to a GraphML file
-    nx.write_graphml(G, outfile)
+    nx.write_graphml(G outfile)
     print(f'GraphML written to {outfile}')
 
 if __name__ == '__main__':
     typer.run(main)
 EOF
 
-# Export a slice around Des Moines, Iowa
+# Export a slice around Des Moines Iowa
 python tools/export_slice_simple.py --lon -93.6 --lat 41.6 --radius 5 --outfile iowa_slice.graphml
 ```
 
-## 10. Verify Results
+## 10. Resetting the Database and Rerunning the Pipeline
+
+If you need to clear out the database and rerun the pipeline (for example, to test changes or to start fresh), you can use the `reset_database.py` script:
+
+```bash
+# Reset the entire database (drops and recreates the database)
+python scripts/reset_database.py --reset-all
+
+# Alternatively, reset only the derived tables (preserves the OSM data)
+python scripts/reset_database.py --reset-derived
+
+# Reset and reimport OSM data
+python scripts/reset_database.py --reset-all --import data/iowa-latest.osm.pbf
+
+# If you encounter issues with Docker-based osm2pgsql, use the local version
+python scripts/reset_database.py --reset-all --import data/iowa-latest.osm.pbf --local-osm2pgsql
+```
+
+After resetting the database, you can rerun the pipeline using the `run_pipeline.py` script:
+
+```bash
+# Run the complete pipeline
+python scripts/run_pipeline.py
+
+# Run the pipeline and export a slice
+python scripts/run_pipeline.py --export --lon -93.63 --lat 41.99 --radius 5 --output test_slice.graphml
+```
+
+## 11. Preserving OSM Attributes (Optional)
+
+If you want to preserve OSM attributes like highway type, names, and surface in the exported graph, you can use the `--preserve-attributes` flag with the `run_pipeline.py` script:
+
+```bash
+# Run the pipeline with preserved OSM attributes
+python scripts/run_pipeline.py --preserve-attributes
+```
+
+Then, use the `export_slice_with_attributes.py` script to export a graph slice with all OSM attributes preserved:
+
+```bash
+# Export a slice with OSM attributes
+python scripts/export_slice_with_attributes.py --lon -93.63 --lat 41.99 --radius 5 --outfile data/iowa_central_with_attributes.graphml
+```
+
+For more details on preserving OSM attributes, see [OSM Attributes Guide](osm_attributes.md).
+
+## 12. Verify Results
 
 ```bash
 # Check the number of nodes and edges in the exported graph
@@ -323,6 +369,16 @@ python -c "import networkx as nx; G = nx.read_graphml('iowa_slice.graphml'); pri
 ```
 
 ## Troubleshooting
+
+- If you encounter errors when resetting the database, it might be because there are active connections to the database. You can terminate all connections with:
+  ```sql
+  SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'gis' AND pid <> pg_backend_pid();
+  ```
+
+- If the pgrouting extension is missing, you can install it in the Docker container with:
+  ```bash
+  docker exec -it geo-graph-db-1 bash -c "apt-get update && apt-get install -y postgresql-16-pgrouting"
+  ```
 
 - If osm2pgsql fails with "File does not exist: default", remove the `--style default` parameter
 - If you get connection errors, verify the container name with `docker compose ps`
@@ -339,4 +395,3 @@ python -c "import networkx as nx; G = nx.read_graphml('iowa_slice.graphml'); pri
 - Try different buffer sizes for water features
 - Try different grid densities for the terrain grid
 - Explore the database using pgAdmin at http://localhost:5050
-- Implement pgRouting topology for more advanced routing capabilities
