@@ -1,0 +1,40 @@
+{
+  "water_features": {
+    "polygon_types": ["water", "natural=water", "landuse=reservoir"],
+    "line_types": ["river", "stream", "canal", "drain", "ditch"],
+    "min_area_sqm": 10000,
+    "include_intermittent": true
+  },
+  "buffer_sizes": {
+    "default": 50,
+    "river": 50,
+    "stream": 20,
+    "canal": 30,
+    "drain": 5,
+    "ditch": 5,
+    "lake": 50,
+    "pond": 20,
+    "reservoir": 50
+  },
+  "crossability": {
+    "default": 30,
+    "river": 10,
+    "stream": 50,
+    "canal": 30,
+    "drain": 70,
+    "ditch": 80,
+    "lake": 10,
+    "pond": 30,
+    "reservoir": 10,
+    "intermittent_multiplier": 2.0
+  },
+  "terrain_grid": {
+    "cell_size": 200,
+    "connection_distance": 300
+  },
+  "environmental_conditions": {
+    "rainfall": 0.0,
+    "snow_depth": 0.0,
+    "temperature": 20.0
+  }
+}
