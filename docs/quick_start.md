@@ -361,11 +361,31 @@ python scripts/export_slice_with_attributes.py --lon -93.63 --lat 41.99 --radius
 
 For more details on preserving OSM attributes, see [OSM Attributes Guide](osm_attributes.md).
 
-## 12. Verify Results
+## 12. Using the Enhanced Pipeline (Optional)
+
+The enhanced pipeline adds support for isochrone-based graph slicing and preserves OSM attributes in the exported graph. To use the enhanced pipeline:
+
+```bash
+# Run the enhanced pipeline
+python scripts/run_pipeline_enhanced.py
+
+# Export an isochrone-based slice
+python tools/export_slice_enhanced_fixed.py --lon -93.63 --lat 41.99 --minutes 60 --outfile isochrone_enhanced.graphml
+
+# Visualize the exported graph
+python visualize_graph.py isochrone_enhanced.graphml
+```
+
+For more details on the enhanced pipeline, see [Enhanced Pipeline](enhanced_pipeline.md).
+
+## 13. Verify Results
 
 ```bash
 # Check the number of nodes and edges in the exported graph
 python -c "import networkx as nx; G = nx.read_graphml('iowa_slice.graphml'); print(f'Nodes: {len(G.nodes)}, Edges: {len(G.edges)}')"
+
+# Check the enhanced graph
+python -c "import networkx as nx; G = nx.read_graphml('isochrone_enhanced.graphml'); print(f'Nodes: {len(G.nodes)}, Edges: {len(G.edges)}')"
 ```
 
 ## Troubleshooting

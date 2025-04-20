@@ -202,6 +202,42 @@ The script executes the following SQL scripts in sequence:
 7. refresh_topology_simple.sql - Create topology for the unified graph
 8. create_unified_edges.sql - Combine all edge tables into a unified graph
 
+## Enhanced Pipeline
+
+The enhanced pipeline adds support for isochrone-based graph slicing and preserves OSM attributes in the exported graph. It consists of the following components:
+
+### Enhanced SQL Scripts
+
+- `derive_road_and_water_enhanced_fixed.sql`: Extracts road and water features from OSM data, preserving all OSM attributes.
+- `create_edge_tables_enhanced.sql`: Creates edge tables for the unified graph, preserving all OSM attributes.
+- `create_unified_edges_enhanced_fixed_v2.sql`: Combines all edge tables into a unified graph, preserving all OSM attributes.
+- `refresh_topology_fixed_v2.sql`: Creates topology for the unified graph, ensuring that all edges have valid source and target nodes.
+
+### Enhanced Export Script
+
+The enhanced pipeline includes a new export script, `export_slice_enhanced_fixed.py`, which:
+
+1. Uses pgRouting's `pgr_drivingDistance` function to calculate areas reachable within a specified travel time.
+2. Creates a convex hull of the reachable nodes to approximate an isochrone.
+3. Extracts edges that intersect with the isochrone polygon.
+4. Preserves all OSM attributes in the exported GraphML file.
+5. Optionally exports to Valhalla tiles for routing.
+
+### Running the Enhanced Pipeline
+
+```bash
+# Run the enhanced pipeline
+python scripts/run_pipeline_enhanced.py
+
+# Export an isochrone-based slice
+python tools/export_slice_enhanced_fixed.py --lon -93.63 --lat 41.99 --minutes 60 --outfile isochrone_enhanced.graphml
+
+# Visualize the exported graph
+python visualize_graph.py isochrone_enhanced.graphml
+```
+
+For more details on the enhanced pipeline, see [Enhanced Pipeline](enhanced_pipeline.md).
+
 ## Notes
 
 - The OSM data is in SRID 3857 (Web Mercator), but we need to transform it to SRID 4326 (WGS84) for geographic calculations.

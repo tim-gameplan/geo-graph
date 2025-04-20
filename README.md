@@ -70,15 +70,25 @@ pip install -r requirements.txt
 # Load OSM data and build the graph
 # (See docs/quick_start.md for detailed steps)
 
-# Export a 1-hour drive GraphML slice
+# Export a 1-hour drive GraphML slice (basic)
 python tools/export_slice.py slice \
        --lon -93.63 --lat 41.99 \
        --minutes 60 \
        --outfile ia_central.graphml
 
+# Export a 1-hour drive GraphML slice (enhanced with isochrone)
+python tools/export_slice_enhanced_fixed.py \
+       --lon -93.63 --lat 41.99 \
+       --minutes 60 \
+       --outfile isochrone_enhanced.graphml
+
+# Visualize the exported graph
+python visualize_graph.py isochrone_enhanced.graphml
+
 # Reset the database and rerun the pipeline (if needed)
 python scripts/reset_database.py --reset-all
-python scripts/run_pipeline.py
+python scripts/run_pipeline.py  # Basic pipeline
+python scripts/run_pipeline_enhanced.py  # Enhanced pipeline with OSM attributes
 ```
 
 For detailed instructions, see [Quick Start Guide](docs/quick_start.md).
@@ -98,6 +108,7 @@ For detailed instructions, see [Quick Start Guide](docs/quick_start.md).
 - [Quick Start Guide](docs/quick_start.md) - Get up and running quickly
 - [Project Notes](docs/project_notes.md) - Comprehensive documentation
 - [OSM Attributes Guide](docs/osm_attributes.md) - Preserving OSM attributes in the graph
+- [Enhanced Pipeline](docs/enhanced_pipeline.md) - Isochrone-based graph slicing and OSM attribute preservation
 - [Project Plan](docs/terrain_graph_project_plan.md) - Project timeline and deliverables
 - [Code Audit](docs/code_audit.md) - Analysis of existing codebase
 
