@@ -15,8 +15,9 @@ This document provides an inventory of all scripts in the project, their purpose
 | `scripts/run_pipeline.py` | Runs the standard terrain graph pipeline | Original pipeline script |
 | `scripts/run_pipeline_enhanced.py` | Runs the enhanced terrain graph pipeline with improved cost calculation | Enhanced version of run_pipeline.py |
 | `planning/scripts/run_water_obstacle_pipeline.py` | Runs the water obstacle modeling pipeline | New pipeline focused on water modeling |
+| `planning/scripts/run_water_obstacle_pipeline_fixed.py` | Runs the improved water obstacle pipeline with better dissolve step | Fixed version of run_water_obstacle_pipeline.py |
 
-**Consolidation Opportunity**: Consider creating a unified pipeline script that can run any of the three pipelines based on command-line arguments.
+**Consolidation Opportunity**: Consider creating a unified pipeline script that can run any of the pipelines based on command-line arguments.
 
 ## Export Scripts
 
@@ -60,6 +61,22 @@ This document provides an inventory of all scripts in the project, their purpose
 |--------|---------|------------------|
 | `scripts/analyze_osm_attributes.py` | Analyzes OSM attributes in the database | Unique functionality, no redundancy |
 | `scripts/run_sql_queries.py` | Runs SQL queries against the database | Utility script, no redundancy |
+
+## SQL Scripts
+
+| Script | Purpose | Redundancy Notes |
+|--------|---------|------------------|
+| `planning/sql/01_extract_water_features.sql` | Extracts water features from OSM data | Core water pipeline SQL |
+| `planning/sql/02_create_water_buffers.sql` | Creates buffers around water features | Core water pipeline SQL |
+| `planning/sql/03_dissolve_water_buffers.sql` | Dissolves overlapping water buffers | Original dissolve SQL |
+| `planning/sql/03_dissolve_water_buffers_fixed.sql` | Fixed version of dissolve water buffers | Fixed version with better clustering |
+| `planning/sql/03_dissolve_water_buffers_improved.sql` | Improved version of dissolve water buffers | Optimized for large datasets with proper coordinate transformation |
+| `planning/sql/04_create_terrain_grid.sql` | Creates a terrain grid for the study area | Core water pipeline SQL |
+| `planning/sql/05_create_terrain_edges.sql` | Creates terrain edges connecting grid cells | Core water pipeline SQL |
+| `planning/sql/06_create_water_edges.sql` | Creates water edges representing water obstacles | Core water pipeline SQL |
+| `planning/sql/07_create_environmental_tables.sql` | Adds environmental conditions to the water edges | Core water pipeline SQL |
+
+**Consolidation Opportunity**: The three versions of the dissolve water buffers SQL could be consolidated into a single parameterized SQL file.
 
 ## Utility Scripts
 
