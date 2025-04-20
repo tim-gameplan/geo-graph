@@ -1,159 +1,256 @@
-# File Organization and Workflow Guide
+# File Organization and Pipeline Documentation
 
-## Overview
-
-This document outlines the file organization strategy for the terrain graph pipeline project and provides recommendations for the optimal workflow. The goal is to provide a clear understanding of the project structure and how to use the various scripts effectively.
+This document provides an overview of the file organization and pipeline process for the terrain system project.
 
 ## Directory Structure
 
 The project is organized into the following directories:
 
-```
-geo-graph/
-├── data/                    # Input data files
-│   └── subsets/             # Subsets of OSM data
-├── deprecated/              # Deprecated files (kept for reference)
-│   ├── scripts/             # Deprecated script files
-│   ├── sql/                 # Deprecated SQL files
-│   └── tools/               # Deprecated tool files
-├── docs/                    # Documentation
-├── output/                  # Output files
-│   ├── exports/             # Exported GraphML files
-│   ├── logs/                # Log files
-│   └── visualizations/      # Visualization outputs
-│       ├── combined/        # Combined visualizations
-│       ├── graphml/         # GraphML visualizations
-│       ├── terrain/         # Terrain grid visualizations
-│       └── water/           # Water obstacle visualizations
-├── planning/                # Planning and development files
-│   ├── config/              # Configuration files
-│   ├── scripts/             # Planning scripts
-│   ├── sql/                 # Planning SQL files
-│   └── tests/               # Test files
-├── scripts/                 # Core scripts
-├── sql/                     # Core SQL files
-├── tools/                   # Tool scripts
-└── utils/                   # Utility modules
-```
+- **data/**: Contains input data files and subsets
+- **deprecated/**: Contains deprecated scripts and SQL files that are no longer used
+- **docker/**: Contains Docker configuration files
+- **docs/**: Contains project documentation
+- **output/**: Contains output files, organized into subdirectories
+  - **exports/**: Contains exported graph files (GraphML)
+  - **logs/**: Contains log files
+  - **visualizations/**: Contains visualization images, organized by type
+    - **graphml/**: Graph visualizations
+    - **water/**: Water obstacle visualizations
+    - **terrain/**: Terrain visualizations
+    - **combined/**: Combined visualizations
+- **planning/**: Contains planning-related files
+  - **config/**: Configuration files for different environments
+  - **scripts/**: Planning-specific scripts
+  - **sql/**: SQL files for planning-specific operations
+  - **tests/**: Test files for planning-specific scripts
+- **scripts/**: Contains main pipeline scripts
+- **sql/**: Contains SQL files for the main pipeline
+- **tools/**: Contains utility tools and scripts
+- **utils/**: Contains utility modules
 
-## Core Files
+## Pipeline Process
 
-The following files form the core of the terrain graph pipeline:
+The terrain system pipeline consists of several steps:
 
-### Pipeline Scripts
+1. **Database Reset**: Reset the database to prepare for a new pipeline run
+2. **Enhanced Pipeline**: Run the enhanced pipeline to create the unified edges
+3. **Water Obstacle Pipeline**: Run the water obstacle pipeline to model water features
+4. **Export**: Export a slice of the graph for visualization
+5. **Visualization**: Visualize the graph slice and water obstacles
 
-- `scripts/run_pipeline_enhanced.py` - Enhanced pipeline with OSM attributes
-- `scripts/run_unified_pipeline.py` - Unified interface for all pipelines
-- `planning/scripts/run_water_obstacle_pipeline.py` - Water obstacle pipeline
+### Database Reset
 
-### Export Scripts
-
-- `tools/export_slice_enhanced_fixed.py` - Enhanced export with isochrone-based slicing
-- `tools/export_unified.py` - Unified interface for all export operations
-
-### Visualization Scripts
-
-- `visualize_graph.py` - Visualize GraphML files
-- `visualize_unified.py` - Unified interface for all visualization operations
-- `planning/scripts/visualize_water_obstacles.py` - Visualize water obstacles
-
-### SQL Scripts
-
-- `sql/derive_road_and_water_enhanced_fixed.sql` - Extract road and water features with OSM attributes
-- `sql/create_edge_tables_enhanced.sql` - Create edge tables with OSM attributes
-- `sql/create_unified_edges_enhanced_fixed_v2.sql` - Create unified edges with OSM attributes
-- `sql/refresh_topology_fixed_v2.sql` - Refresh topology with fixed SRID handling
-
-### Utility Scripts
-
-- `scripts/reset_database.py` - Reset the database
-- `scripts/extract_osm_subset.py` - Extract OSM subsets
-- `planning/scripts/config_loader.py` - Load configuration files
-- `utils/file_management.py` - File management utilities
-
-## Recommended Workflow
-
-For the most complete and feature-rich pipeline, we recommend the following workflow:
-
-### 1. Reset the Database
+The database reset is performed using the `scripts/reset_database.py` script:
 
 ```bash
-python scripts/reset_database.py --reset-all
+python scripts/reset_database.py --reset-derived
 ```
 
-### 2. Run the Enhanced Pipeline
+This script resets all derived tables while preserving the base OSM data.
+
+### Enhanced Pipeline
+
+The enhanced pipeline is run using the `scripts/run_pipeline_enhanced.py` script:
 
 ```bash
 python scripts/run_pipeline_enhanced.py
 ```
 
-### 3. Export a Slice
+This script executes the following SQL files in sequence:
+
+1. `derive_road_and_water_enhanced_fixed.sql`: Extract road and water features from OSM data
+2. `build_water_buffers_simple.sql`: Create water buffers around water features
+3. `create_grid_profile.sql`: Create a grid profile for terrain modeling
+4. `build_terrain_grid_simple.sql`: Create a terrain grid based on the grid profile
+5. `create_edge_tables_enhanced.sql`: Create edge tables for the graph
+6. `add_source_target_columns.sql`: Add source and target columns to the edge tables
+7. `create_unified_edges_enhanced_fixed_v2.sql`: Create the unified edges table
+8. `refresh_topology_fixed_v2.sql`: Refresh the graph topology
+
+### Water Obstacle Pipeline
+
+The water obstacle pipeline is run using the `scripts/run_unified_pipeline.py` script:
+
+```bash
+python scripts/run_unified_pipeline.py --mode water --config planning/config/default_config.json
+```
+
+This script executes the following SQL files in sequence:
+
+1. `01_extract_water_features.sql`: Extract water features from OSM data
+2. `02_create_water_buffers.sql`: Create water buffers around water features
+3. `03_dissolve_water_buffers.sql`: Dissolve overlapping water buffers
+4. `04_create_terrain_grid.sql`: Create a terrain grid
+5. `05_create_terrain_edges.sql`: Create terrain edges
+6. `06_create_water_edges.sql`: Create water edges
+7. `07_create_environmental_tables.sql`: Create environmental tables
+
+### Export
+
+The graph slice is exported using the `tools/export_slice_enhanced_fixed.py` script:
 
 ```bash
 python tools/export_slice_enhanced_fixed.py --lon -93.63 --lat 41.99 --minutes 60 --outfile enhanced_test.graphml
 ```
 
-### 4. Visualize the Exported Graph
+This script creates an isochrone-based slice of the graph centered at the specified coordinates.
+
+### Visualization
+
+The graph slice and water obstacles are visualized using the `visualize_unified.py` script:
 
 ```bash
-python visualize_unified.py --mode graphml --input enhanced_test.graphml
-```
-
-## Alternative Workflows
-
-### Using the Unified Pipeline Script
-
-The unified pipeline script provides a single interface for running any of the three pipelines:
-
-```bash
-# Run the enhanced pipeline
-python scripts/run_unified_pipeline.py --mode enhanced
-
-# Run the water obstacle pipeline
-python scripts/run_unified_pipeline.py --mode water --config planning/config/default_config.json
-
-# Run the test pipeline
-python scripts/run_unified_pipeline.py --mode test
-```
-
-### Using the Unified Export Script
-
-The unified export script provides a single interface for all export operations:
-
-```bash
-# Export a simple radius-based slice
-python tools/export_unified.py --mode simple --lon -93.63 --lat 41.99 --radius 5
-
-# Export an isochrone-based slice
-python tools/export_unified.py --mode enhanced --lon -93.63 --lat 41.99 --minutes 60
-
-# Export a slice with OSM attributes
-python tools/export_unified.py --mode attributes --lon -93.63 --lat 41.99 --radius 5
-```
-
-### Using the Unified Visualization Script
-
-The unified visualization script provides a single interface for all visualization operations:
-
-```bash
-# Visualize a GraphML file
+# Visualize the graph slice
 python visualize_unified.py --mode graphml --input enhanced_test.graphml
 
-# Visualize water obstacles
+# Visualize the water obstacles
 python visualize_unified.py --mode water
-
-# Create a combined visualization
-python visualize_unified.py --mode combined --input enhanced_test.graphml
 ```
 
-## File Management
+## Database Schema
 
-All visualization outputs are stored in a structured directory hierarchy with timestamp-based naming. See [File Management Guide](file_management.md) for details.
+The database schema consists of the following tables:
 
-## Deprecated Files
+### Unified Edges Table
 
-Files that have been deprecated in favor of newer, more comprehensive versions are moved to the `deprecated/` directory. These files are kept for reference but should not be used in production. See [Deprecated Files README](../deprecated/README.md) for details.
+The `unified_edges` table contains the unified graph edges:
 
-## Conclusion
+- `id`: Edge ID
+- `source`: Source vertex ID
+- `target`: Target vertex ID
+- `cost`: Edge cost
+- `geom`: Edge geometry
 
-By following this file organization strategy and recommended workflow, we can maintain a clean, organized project that is easy to understand and use. The unified scripts provide a consistent interface for all operations, making it easier to run the pipeline, export slices, and visualize the results.
+### Water Edges Table
+
+The `water_edges` table contains the water obstacle edges:
+
+- `id`: Edge ID
+- `source`: Source vertex ID
+- `target`: Target vertex ID
+- `cost`: Edge cost
+- `crossability`: Crossability value
+- `avg_buffer_size_m`: Average buffer size in meters
+- `length_m`: Edge length in meters
+- `geom`: Edge geometry
+- `edge_type`: Edge type
+- `crossability_group`: Crossability group
+- `buffer_rules_applied`: Buffer rules applied
+- `crossability_rules_applied`: Crossability rules applied
+
+### Water Buffers Table
+
+The `water_buf_dissolved` table contains the dissolved water buffers:
+
+- `id`: Buffer ID
+- `crossability`: Crossability value
+- `avg_buffer_size_m`: Average buffer size in meters
+- `geom`: Buffer geometry
+- `buffer_rules_applied`: Buffer rules applied
+- `crossability_group`: Crossability group
+- `crossability_rules_applied`: Crossability rules applied
+
+### Environmental Conditions Table
+
+The `environmental_conditions` table contains the environmental conditions:
+
+- `condition_name`: Condition name
+- `value`: Condition value
+- `last_updated`: Last updated timestamp
+
+## File Naming Conventions
+
+The project uses the following file naming conventions:
+
+- **SQL Files**: Snake case with descriptive names (e.g., `create_unified_edges.sql`)
+- **Python Scripts**: Snake case with descriptive names (e.g., `run_pipeline_enhanced.py`)
+- **Configuration Files**: Snake case with descriptive names (e.g., `default_config.json`)
+- **Documentation Files**: Snake case with descriptive names (e.g., `file_organization.md`)
+- **Output Files**: Timestamp-based naming with descriptive suffixes (e.g., `2025-04-20_14-19-56_enhanced_test_dpi-300.png`)
+
+## Visualization Output
+
+All visualizations are stored in the `output/visualizations/` directory, organized by type:
+
+- **GraphML Visualizations**: `output/visualizations/graphml/`
+- **Water Obstacle Visualizations**: `output/visualizations/water/`
+- **Terrain Visualizations**: `output/visualizations/terrain/`
+- **Combined Visualizations**: `output/visualizations/combined/`
+
+Each visualization file is named with a timestamp, description, and parameters:
+
+```
+YYYY-MM-DD_HH-MM-SS_description_param1-value1_param2-value2.png
+```
+
+For example:
+
+```
+2025-04-20_14-19-56_enhanced_test_dpi-300.png
+```
+
+## Logging
+
+All logs are stored in the `output/logs/` directory. Each log file is named with a date and description:
+
+```
+YYYY-MM-DD_description.log
+```
+
+For example:
+
+```
+2025-04-20_visualization.log
+```
+
+The logs use a consistent format:
+
+```
+YYYY-MM-DD HH:MM:SS,ms - logger_name - log_level - message
+```
+
+For example:
+
+```
+2025-04-20 14:19:56,113 - unified_visualization - INFO - Visualizing GraphML file: enhanced_test.graphml
+```
+
+## Recommended Workflow
+
+For future development, we recommend the following workflow:
+
+1. **Reset the Database**:
+
+```bash
+python scripts/reset_database.py --reset-derived
+```
+
+2. **Run the Enhanced Pipeline**:
+
+```bash
+python scripts/run_pipeline_enhanced.py
+```
+
+3. **Run the Water Obstacle Pipeline**:
+
+```bash
+python scripts/run_unified_pipeline.py --mode water --config planning/config/default_config.json
+```
+
+4. **Export a Graph Slice**:
+
+```bash
+python tools/export_slice_enhanced_fixed.py --lon -93.63 --lat 41.99 --minutes 60 --outfile enhanced_test.graphml
+```
+
+5. **Visualize the Results**:
+
+```bash
+# Visualize the graph slice
+python visualize_unified.py --mode graphml --input enhanced_test.graphml
+
+# Visualize the water obstacles
+python visualize_unified.py --mode water
+```
+
+This workflow provides the most comprehensive solution with OSM attribute preservation and isochrone-based graph slicing.

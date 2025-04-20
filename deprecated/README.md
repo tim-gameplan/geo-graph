@@ -1,36 +1,60 @@
 # Deprecated Files
 
-This directory contains files that have been deprecated in favor of newer, more comprehensive versions. These files are kept for reference but should not be used in production.
+This directory contains files that are no longer used in the main pipeline but are kept for reference.
 
-## Why These Files Were Deprecated
+## Overview
 
-The project has evolved to use a unified approach for pipeline, export, and visualization operations. The files in this directory have been superseded by:
+As the project has evolved, some files have been replaced with improved versions or are no longer needed. These files are moved to this directory to keep the main directories clean while preserving the history of the project.
 
-- `scripts/run_unified_pipeline.py` - Unified pipeline script that can run any of the three pipelines
-- `tools/export_unified.py` - Unified export script that can export using any of the export methods
-- `visualize_unified.py` - Unified visualization script that can visualize any of the visualization types
+## Deprecated Files
 
-## Directory Structure
+### Scripts
 
-- `scripts/` - Deprecated script files
-- `sql/` - Deprecated SQL files
-- `tools/` - Deprecated tool files
+- **export_slice_with_attributes.py**: Replaced by `tools/export_slice_enhanced_fixed.py`, which provides improved isochrone-based slicing and better attribute handling.
+- **run_pipeline.py**: Replaced by `scripts/run_pipeline_enhanced.py`, which provides improved OSM attribute preservation and better water feature modeling.
 
-## Recommended Workflow
+### SQL Files
 
-For the most complete and feature-rich pipeline, we recommend using:
+- **build_terrain_grid.sql**: Replaced by `sql/build_terrain_grid_simple.sql`, which provides a simpler and more efficient terrain grid creation process.
+- **build_water_buffers.sql**: Replaced by `sql/build_water_buffers_simple.sql`, which provides a simpler and more efficient water buffer creation process.
+- **build_water_buffers_simple.sql**: Moved from `sql/` to `deprecated/sql/` and then back to `sql/` as it's still needed by the enhanced pipeline.
+- **create_unified_edges_enhanced.sql**: Replaced by `sql/create_unified_edges_enhanced_fixed.sql`, which fixes issues with the original version.
+- **create_unified_edges_enhanced_fixed.sql**: Replaced by `sql/create_unified_edges_enhanced_fixed_v2.sql`, which provides further improvements.
+- **create_unified_edges_with_attributes.sql**: Replaced by `sql/create_unified_edges_enhanced_fixed_v2.sql`, which provides improved attribute handling.
+- **create_unified_edges.sql**: Replaced by `sql/create_unified_edges_enhanced_fixed_v2.sql`, which provides improved OSM attribute preservation.
+- **derive_road_and_water_enhanced.sql**: Replaced by `sql/derive_road_and_water_enhanced_fixed.sql`, which fixes issues with the original version.
+- **derive_road_and_water_fixed.sql**: Replaced by `sql/derive_road_and_water_enhanced_fixed.sql`, which provides improved OSM attribute preservation.
+- **derive_road_and_water.sql**: Replaced by `sql/derive_road_and_water_enhanced_fixed.sql`, which provides improved OSM attribute preservation.
+- **refresh_topology_fixed.sql**: Replaced by `sql/refresh_topology_fixed_v2.sql`, which provides improved topology handling.
+- **refresh_topology_simple.sql**: Replaced by `sql/refresh_topology_fixed_v2.sql`, which provides improved topology handling.
+- **refresh_topology.sql**: Replaced by `sql/refresh_topology_fixed_v2.sql`, which provides improved topology handling.
 
-```bash
-# Run the enhanced pipeline with the unified script
-python scripts/run_pipeline_enhanced.py
+### Tools
 
-# Export a slice with the enhanced export script
-python tools/export_slice_enhanced_fixed.py --lon -93.63 --lat 41.99 --minutes 60 --outfile slice.graphml
+- **export_slice_enhanced.py**: Replaced by `tools/export_slice_enhanced_fixed.py`, which fixes issues with the original version.
+- **export_slice_simple.py**: Replaced by `tools/export_slice_enhanced_fixed.py`, which provides improved isochrone-based slicing.
+- **export_slice.py**: Replaced by `tools/export_slice_enhanced_fixed.py`, which provides improved isochrone-based slicing.
 
-# Visualize the exported graph with the unified visualization script
-python visualize_unified.py --mode graphml --input slice.graphml
-```
+## When to Use Deprecated Files
 
-## Note
+In general, you should not use the deprecated files for new development. However, they may be useful for reference or for understanding the history of the project.
 
-These files are kept in version control for reference and historical purposes. They may be removed in a future release.
+If you need to use a deprecated file, consider copying it to the appropriate directory and updating it to match the current project structure and naming conventions.
+
+## Moving Files to Deprecated
+
+When moving files to the deprecated directory, follow these guidelines:
+
+1. Move the file to the corresponding subdirectory in `deprecated/` (e.g., `scripts/` to `deprecated/scripts/`).
+2. Update the README.md file in the deprecated directory to document the file and why it was deprecated.
+3. Update any documentation that references the file to point to the new version.
+4. If the file is still referenced by other files, update those references to point to the new version.
+
+## Restoring Files from Deprecated
+
+If you need to restore a file from the deprecated directory, follow these guidelines:
+
+1. Copy the file to the appropriate directory (e.g., `deprecated/scripts/` to `scripts/`).
+2. Update the file to match the current project structure and naming conventions.
+3. Update any references to the file in other files.
+4. Update the documentation to reflect the restored file.

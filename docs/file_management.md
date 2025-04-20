@@ -1,54 +1,89 @@
-# Visualization File Management Guide
+# File Management Utilities
+
+This document provides an overview of the file management utilities in the `utils/file_management.py` module.
 
 ## Overview
 
-This document outlines the file management strategy for visualization outputs in the terrain graph pipeline project. The goal is to provide a consistent and organized approach to storing and naming visualization files, making it easier to track and manage outputs during development.
+The file management utilities provide a consistent way to manage file paths and naming conventions for the terrain system project, particularly for visualization outputs. These utilities ensure that all output files follow a consistent naming convention and are stored in the appropriate directories.
 
 ## Directory Structure
 
-All visualization outputs are stored in a structured directory hierarchy:
+The file management utilities create and manage the following directory structure:
 
 ```
 output/
-├── visualizations/
-│   ├── graphml/             # For GraphML visualizations
-│   │   └── YYYY-MM-DD_HH-MM-SS_[description]_[parameters].png
-│   ├── water/               # For water obstacle visualizations
-│   │   └── YYYY-MM-DD_HH-MM-SS_[description]_[parameters].png
-│   ├── terrain/             # For terrain grid visualizations
-│   │   └── YYYY-MM-DD_HH-MM-SS_[description]_[parameters].png
-│   └── combined/            # For combined visualizations
-│       └── YYYY-MM-DD_HH-MM-SS_[description]_[parameters].png
-├── exports/                 # For exported GraphML files
-│   └── YYYY-MM-DD_HH-MM-SS_[description]_[parameters].graphml
-└── logs/                    # For visualization and export logs
-    └── YYYY-MM-DD_[description].log
+├── exports/
+│   └── YYYY-MM-DD_HH-MM-SS_description_param1-value1.graphml
+├── logs/
+│   └── YYYY-MM-DD_description.log
+└── visualizations/
+    ├── combined/
+    │   └── YYYY-MM-DD_HH-MM-SS_description_param1-value1.png
+    ├── graphml/
+    │   └── YYYY-MM-DD_HH-MM-SS_description_param1-value1.png
+    ├── terrain/
+    │   └── YYYY-MM-DD_HH-MM-SS_description_param1-value1.png
+    └── water/
+        └── YYYY-MM-DD_HH-MM-SS_description_param1-value1.png
 ```
 
-## Naming Convention
+## Functions
 
-All visualization files follow a consistent naming pattern:
+### `get_timestamp()`
 
+Get the current timestamp in YYYY-MM-DD_HH-MM-SS format.
+
+```python
+def get_timestamp() -> str:
+    """
+    Get the current timestamp in YYYY-MM-DD_HH-MM-SS format.
+    
+    Returns:
+        str: Formatted timestamp
+    """
+    now = datetime.datetime.now()
+    return now.strftime("%Y-%m-%d_%H-%M-%S")
 ```
-YYYY-MM-DD_HH-MM-SS_[description]_[parameters].png
+
+### `format_parameters(parameters)`
+
+Format parameters for inclusion in filenames.
+
+```python
+def format_parameters(parameters: Dict[str, Any]) -> str:
+    """
+    Format parameters for inclusion in filenames.
+    
+    Args:
+        parameters: Dictionary of parameters
+    
+    Returns:
+        str: Formatted parameter string
+    """
+    if not parameters:
+        return ""
+    
+    # Format each parameter as key-value
+    param_strs = []
+    for key, value in parameters.items():
+        # Format numeric values with appropriate precision
+        if isinstance(value, float):
+            # Use 2 decimal places for most values, but more for coordinates
+            if key in ['lat', 'lon', 'latitude', 'longitude']:
+                param_str = f"{key}{value:.5f}"
+            else:
+                param_str = f"{key}{value:.2f}"
+        else:
+            param_str = f"{key}-{value}"
+        
+        param_strs.append(param_str)
+    
+    return "_".join(param_strs)
 ```
 
-Where:
-- `YYYY-MM-DD_HH-MM-SS` is the timestamp when the file was created
-- `[description]` is a brief description of the visualization
-- `[parameters]` are key parameters used to generate the visualization (optional)
+### `get_visualization_path(viz_type, description, parameters, extension)`
 
-Examples:
-```
-2025-04-20_11-30-00_isochrone_enhanced_lat41.99_lon-93.63_60min.png
-2025-04-20_11-35-00_water_obstacles_config-mississippi.png
-```
-
-## Utility Functions
-
-The `utils/file_management.py` module provides utility functions for generating file paths according to the naming convention:
-
-### `get_visualization_path()`
+Get the path for a visualization file.
 
 ```python
 def get_visualization_path(
@@ -57,30 +92,47 @@ def get_visualization_path(
     parameters: Optional[Dict[str, Any]] = None,
     extension: str = "png"
 ) -> str:
+    """
+    Get the path for a visualization file.
+    
+    Args:
+        viz_type: Type of visualization (graphml, water, terrain, combined)
+        description: Description of the visualization
+        parameters: Dictionary of parameters used to generate the visualization
+        extension: File extension (default: png)
+    
+    Returns:
+        str: Path to the visualization file
+    """
+    # Validate visualization type
+    valid_types = ["graphml", "water", "terrain", "combined"]
+    if viz_type not in valid_types:
+        raise ValueError(f"Invalid visualization type: {viz_type}. Must be one of {valid_types}")
+    
+    # Get timestamp
+    timestamp = get_timestamp()
+    
+    # Format parameters
+    param_str = format_parameters(parameters) if parameters else ""
+    
+    # Build filename
+    if param_str:
+        filename = f"{timestamp}_{description}_{param_str}.{extension}"
+    else:
+        filename = f"{timestamp}_{description}.{extension}"
+    
+    # Build path
+    path = os.path.join("output", "visualizations", viz_type, filename)
+    
+    # Ensure directory exists
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    
+    return path
 ```
 
-This function generates a path for a visualization file with the appropriate timestamp and directory structure.
+### `get_export_path(description, parameters, extension)`
 
-Parameters:
-- `viz_type`: Type of visualization (graphml, water, terrain, combined)
-- `description`: Description of the visualization
-- `parameters`: Dictionary of parameters used to generate the visualization (optional)
-- `extension`: File extension (default: png)
-
-Example:
-```python
-from utils.file_management import get_visualization_path
-
-# For a GraphML visualization
-output_path = get_visualization_path(
-    viz_type='graphml',
-    description='isochrone_enhanced',
-    parameters={'lat': 41.99, 'lon': -93.63, 'minutes': 60}
-)
-# Result: output/visualizations/graphml/2025-04-20_11-30-00_isochrone_enhanced_lat41.99_lon-93.63_minutes60.png
-```
-
-### `get_export_path()`
+Get the path for an export file.
 
 ```python
 def get_export_path(
@@ -88,102 +140,203 @@ def get_export_path(
     parameters: Optional[Dict[str, Any]] = None,
     extension: str = "graphml"
 ) -> str:
+    """
+    Get the path for an export file.
+    
+    Args:
+        description: Description of the export
+        parameters: Dictionary of parameters used to generate the export
+        extension: File extension (default: graphml)
+    
+    Returns:
+        str: Path to the export file
+    """
+    # Get timestamp
+    timestamp = get_timestamp()
+    
+    # Format parameters
+    param_str = format_parameters(parameters) if parameters else ""
+    
+    # Build filename
+    if param_str:
+        filename = f"{timestamp}_{description}_{param_str}.{extension}"
+    else:
+        filename = f"{timestamp}_{description}.{extension}"
+    
+    # Build path
+    path = os.path.join("output", "exports", filename)
+    
+    # Ensure directory exists
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    
+    return path
 ```
 
-This function generates a path for an export file with the appropriate timestamp and directory structure.
+### `get_log_path(description)`
 
-Parameters:
-- `description`: Description of the export
-- `parameters`: Dictionary of parameters used to generate the export (optional)
-- `extension`: File extension (default: graphml)
-
-Example:
-```python
-from utils.file_management import get_export_path
-
-# For a GraphML export
-export_path = get_export_path(
-    description='iowa_central',
-    parameters={'minutes': 60}
-)
-# Result: output/exports/2025-04-20_11-30-00_iowa_central_minutes60.graphml
-```
-
-### `get_log_path()`
+Get the path for a log file.
 
 ```python
 def get_log_path(description: str = "visualization") -> str:
+    """
+    Get the path for a log file.
+    
+    Args:
+        description: Description of the log
+    
+    Returns:
+        str: Path to the log file
+    """
+    # Get date
+    date = datetime.datetime.now().strftime("%Y-%m-%d")
+    
+    # Build filename
+    filename = f"{date}_{description}.log"
+    
+    # Build path
+    path = os.path.join("output", "logs", filename)
+    
+    # Ensure directory exists
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    
+    return path
 ```
 
-This function generates a path for a log file with the appropriate date and directory structure.
+### `create_init_file(directory)`
 
-Parameters:
-- `description`: Description of the log (default: visualization)
+Create an `__init__.py` file in the specified directory.
 
-Example:
 ```python
-from utils.file_management import get_log_path
-
-# For a visualization log
-log_path = get_log_path("water_visualization")
-# Result: output/logs/2025-04-20_water_visualization.log
+def create_init_file(directory: str) -> None:
+    """
+    Create an __init__.py file in the specified directory.
+    
+    Args:
+        directory: Directory to create the __init__.py file in
+    """
+    init_path = os.path.join(directory, "__init__.py")
+    if not os.path.exists(init_path):
+        with open(init_path, "w") as f:
+            f.write("# This file is intentionally left empty to make the directory a Python package.\n")
 ```
 
-## Using the Visualization Scripts
+### `setup_package_structure()`
 
-The visualization scripts have been updated to use the new file management utilities:
+Set up the package structure by creating `__init__.py` files.
+
+```python
+def setup_package_structure() -> None:
+    """
+    Set up the package structure by creating __init__.py files.
+    """
+    # Create __init__.py in utils directory
+    create_init_file("utils")
+    
+    # Create __init__.py in output directory
+    create_init_file("output")
+```
+
+## Usage Examples
+
+### Visualization Path
+
+```python
+# Get a path for a GraphML visualization
+graphml_path = get_visualization_path(
+    viz_type="graphml",
+    description="enhanced_test",
+    parameters={"dpi": 300}
+)
+# Result: output/visualizations/graphml/2025-04-20_14-19-56_enhanced_test_dpi-300.png
+
+# Get a path for a water visualization
+water_path = get_visualization_path(
+    viz_type="water",
+    description="water_obstacles",
+    parameters={"dpi": 300}
+)
+# Result: output/visualizations/water/2025-04-20_14-20-07_water_obstacles_dpi-300.png
+```
+
+### Export Path
+
+```python
+# Get a path for a GraphML export
+export_path = get_export_path(
+    description="enhanced_test",
+    parameters={"lon": -93.63, "lat": 41.99, "minutes": 60}
+)
+# Result: output/exports/2025-04-20_14-18-56_enhanced_test_lon-93.63000_lat41.99000_minutes-60.graphml
+```
+
+### Log Path
+
+```python
+# Get a path for a visualization log
+log_path = get_log_path("visualization")
+# Result: output/logs/2025-04-20_visualization.log
+
+# Get a path for a unified visualization log
+unified_log_path = get_log_path("unified_visualization")
+# Result: output/logs/2025-04-20_unified_visualization.log
+```
+
+## Integration with Visualization Scripts
+
+The file management utilities are integrated with the visualization scripts to ensure consistent file naming and organization:
 
 ### `visualize_graph.py`
 
-```bash
-# Basic usage (output file will be auto-generated with timestamp)
-python visualize_graph.py slice.graphml
+```python
+from utils.file_management import get_visualization_path
 
-# With custom output path
-python visualize_graph.py slice.graphml --output custom_path.png
+# ...
 
-# With additional parameters
-python visualize_graph.py slice.graphml --title "Iowa Central Region" --dpi 600 --show-labels
+# Determine the output file path
+if output_file is None:
+    # Generate a path using the file management utilities
+    description = os.path.splitext(os.path.basename(input_file))[0]
+    output_file = get_visualization_path(
+        viz_type='graphml',
+        description=description,
+        parameters={'dpi': dpi}
+    )
 ```
 
 ### `visualize_unified.py`
 
-```bash
-# Visualize a GraphML file (output file will be auto-generated with timestamp)
-python visualize_unified.py --mode graphml --input slice.graphml
+```python
+from utils.file_management import get_visualization_path, get_log_path
 
-# Visualize water obstacles (output file will be auto-generated with timestamp)
-python visualize_unified.py --mode water
+# Configure logging
+log_path = get_log_path("unified_visualization")
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler(log_path)
+    ]
+)
 
-# Create a combined visualization (output files will be auto-generated with timestamp)
-python visualize_unified.py --mode combined --input slice.graphml
-```
+# ...
 
-### `planning/scripts/visualize_water_obstacles.py`
-
-```bash
-# Basic usage (output file will be auto-generated with timestamp)
-python planning/scripts/visualize_water_obstacles.py
-
-# With custom output path
-python planning/scripts/visualize_water_obstacles.py --output custom_path.png
-
-# With additional parameters
-python planning/scripts/visualize_water_obstacles.py --title "Water Obstacles" --dpi 600 --description "mississippi_water"
+# Build command
+cmd = [
+    "python", visualize_water_path,
+    "--output", args.output if args.output else get_visualization_path(
+        viz_type='water',
+        description='water_obstacles',
+        parameters={'dpi': args.dpi}
+    ),
+    "--dpi", str(args.dpi)
+]
 ```
 
 ## Best Practices
 
-1. **Let the system generate filenames**: Whenever possible, let the system generate filenames with timestamps automatically. This ensures consistency and makes it easier to track when visualizations were created.
-
-2. **Use descriptive descriptions**: Choose clear, descriptive names for the `description` parameter to make it easier to identify the purpose of each visualization.
-
-3. **Include relevant parameters**: When generating visualizations with specific parameters (e.g., coordinates, time limits), include these in the `parameters` dictionary to make them part of the filename.
-
-4. **Use the appropriate visualization type**: Choose the correct `viz_type` for each visualization to ensure it's stored in the appropriate directory.
-
-5. **Check logs for issues**: If a visualization fails or looks incorrect, check the log files in the `output/logs` directory for error messages and warnings.
-
-## Conclusion
-
-By following this file management strategy, we can maintain a clean, organized collection of visualization outputs that are easy to track and manage. The timestamp-based naming convention ensures that we can see the progression of visualizations over time, which is valuable for development and debugging.
+1. **Always use the file management utilities** for generating file paths to ensure consistent naming and organization.
+2. **Include relevant parameters** in the file names to make it easier to identify the contents of the file.
+3. **Use descriptive descriptions** to make it clear what the file contains.
+4. **Use the appropriate visualization type** to ensure the file is stored in the correct directory.
+5. **Use the appropriate extension** to ensure the file is recognized correctly by other tools.

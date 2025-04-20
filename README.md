@@ -109,6 +109,7 @@ For detailed instructions, see [Quick Start Guide](docs/quick_start.md).
 - [Project Notes](docs/project_notes.md) - Comprehensive documentation
 - [OSM Attributes Guide](docs/osm_attributes.md) - Preserving OSM attributes in the graph
 - [Enhanced Pipeline](docs/enhanced_pipeline.md) - Isochrone-based graph slicing and OSM attribute preservation
+- [Water Edge Comparison](docs/water_edge_comparison.md) - Comparison of original vs. dissolved water edges
 - [Project Plan](docs/terrain_graph_project_plan.md) - Project timeline and deliverables
 - [Code Audit](docs/code_audit.md) - Analysis of existing codebase
 
