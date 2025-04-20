@@ -2,12 +2,10 @@
 """
 Unified Visualization Script
 
-This script can visualize:
-1. GraphML files (terrain graph)
-2. Water obstacles and terrain grid
-3. Combined visualizations
-
-It provides a unified interface for all visualization operations.
+This script provides a unified interface for all visualization operations:
+1. GraphML visualization
+2. Water obstacle visualization
+3. Combined visualization
 """
 
 import os
@@ -17,14 +15,16 @@ import logging
 import importlib.util
 import subprocess
 from pathlib import Path
+from utils.file_management import get_visualization_path, get_log_path
 
 # Configure logging
+log_path = get_log_path("unified_visualization")
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('unified_visualization.log')
+        logging.FileHandler(log_path)
     ]
 )
 logger = logging.getLogger('unified_visualization')
@@ -60,31 +60,28 @@ def visualize_graphml(args):
     logger.info(f"Visualizing GraphML file: {args.input}")
     
     # Import the visualize_graph module
-    visualize_path = os.path.join(os.path.dirname(__file__), "visualize_graph.py")
-    visualize_module = import_module_from_path("visualize_graph", visualize_path)
+    visualize_graph_path = os.path.join(os.path.dirname(__file__), "visualize_graph.py")
+    visualize_graph = import_module_from_path("visualize_graph", visualize_graph_path)
     
-    # Prepare arguments for visualize_graph.main()
-    visualize_args = argparse.Namespace(
-        input=args.input,
-        output=args.output,
-        title=args.title,
-        dpi=args.dpi,
-        node_size=args.node_size,
-        edge_width=args.edge_width,
-        show_labels=args.show_labels
-    )
-    
-    # Run the visualization
+    # Prepare arguments for visualize_graph.visualize_graph()
     try:
-        return visualize_module.main(visualize_args)
+        output_file = visualize_graph.visualize_graph(
+            args.input,
+            args.output,
+            args.title,
+            args.dpi,
+            args.show_labels
+        )
+        
+        return 0
     except Exception as e:
-        logger.error(f"Error visualizing GraphML file: {e}")
+        logger.error(f"Error visualizing GraphML: {e}")
         return 1
 
 
-def visualize_water_obstacles(args):
+def visualize_water(args):
     """
-    Visualize water obstacles and terrain grid.
+    Visualize water obstacles.
     
     Args:
         args: Command-line arguments
@@ -92,46 +89,30 @@ def visualize_water_obstacles(args):
     Returns:
         Exit code (0 for success, non-zero for failure)
     """
-    logger.info("Visualizing water obstacles and terrain grid")
+    logger.info("Visualizing water obstacles")
     
     # Import the visualize_water_obstacles module
-    visualize_path = os.path.join(
+    visualize_water_path = os.path.join(
         os.path.dirname(__file__),
         "planning/scripts/visualize_water_obstacles.py"
     )
     
     # Build command
     cmd = [
-        "python", visualize_path,
-        "--output", args.output
+        "python", visualize_water_path,
+        "--output", args.output if args.output else get_visualization_path(
+            viz_type='water',
+            description='water_obstacles',
+            parameters={'dpi': args.dpi}
+        ),
+        "--dpi", str(args.dpi)
     ]
     
     if args.title:
         cmd.extend(["--title", args.title])
     
-    if args.conn_string:
-        cmd.extend(["--conn-string", args.conn_string])
-    
-    if args.extent:
-        cmd.extend(["--extent", args.extent])
-    
-    if args.no_terrain_grid:
-        cmd.append("--no-terrain-grid")
-    
-    if args.no_terrain_edges:
-        cmd.append("--no-terrain-edges")
-    
-    if args.no_water_edges:
-        cmd.append("--no-water-edges")
-    
-    if args.no_decision_info:
-        cmd.append("--no-decision-info")
-    
-    if args.dpi:
-        cmd.extend(["--dpi", str(args.dpi)])
-    
-    if args.verbose:
-        cmd.append("--verbose")
+    if args.show_labels:
+        cmd.append("--show-labels")
     
     # Run the command
     try:
@@ -158,7 +139,7 @@ def visualize_water_obstacles(args):
 
 def visualize_combined(args):
     """
-    Create a combined visualization of GraphML and water obstacles.
+    Create a combined visualization.
     
     Args:
         args: Command-line arguments
@@ -168,32 +149,19 @@ def visualize_combined(args):
     """
     logger.info("Creating combined visualization")
     
-    # This is a placeholder for future implementation
-    # Currently, we don't have a dedicated combined visualization
-    # Instead, we'll create separate visualizations
+    # First, visualize the GraphML file
+    graphml_result = visualize_graphml(args)
+    if graphml_result != 0:
+        logger.error("Failed to visualize GraphML file")
+        return graphml_result
     
-    logger.warning("Combined visualization is not yet implemented")
-    logger.warning("Creating separate visualizations instead")
-    
-    # Create water obstacles visualization
-    water_result = visualize_water_obstacles(args)
+    # Then, visualize the water obstacles
+    water_result = visualize_water(args)
     if water_result != 0:
+        logger.error("Failed to visualize water obstacles")
         return water_result
     
-    # If a GraphML file is provided, visualize it too
-    if args.input:
-        # Modify the output filename for the GraphML visualization
-        base, ext = os.path.splitext(args.output)
-        graphml_output = f"{base}_graphml{ext}"
-        
-        # Create a copy of args with the modified output
-        graphml_args = argparse.Namespace(**vars(args))
-        graphml_args.output = graphml_output
-        
-        graphml_result = visualize_graphml(graphml_args)
-        if graphml_result != 0:
-            return graphml_result
-    
+    logger.info("Combined visualization completed successfully")
     return 0
 
 
@@ -205,13 +173,13 @@ def main():
         epilog="""
 Examples:
   # Visualize a GraphML file
-  python visualize_unified.py --mode graphml --input slice.graphml --output slice_viz.png
+  python visualize_unified.py --mode graphml --input slice.graphml
   
   # Visualize water obstacles
-  python visualize_unified.py --mode water --output water_viz.png
+  python visualize_unified.py --mode water
   
   # Create a combined visualization
-  python visualize_unified.py --mode combined --input slice.graphml --output combined_viz.png
+  python visualize_unified.py --mode combined --input slice.graphml
 """
     )
     
@@ -220,14 +188,17 @@ Examples:
         "--mode",
         choices=["graphml", "water", "combined"],
         default="graphml",
-        help="Visualization mode to use"
+        help="Visualization mode"
     )
     
     # Common arguments
     parser.add_argument(
+        "--input",
+        help="Path to the input file (required for graphml and combined modes)"
+    )
+    parser.add_argument(
         "--output",
-        default="visualization.png",
-        help="Output file path"
+        help="Path to save the visualization"
     )
     parser.add_argument(
         "--title",
@@ -240,80 +211,22 @@ Examples:
         help="DPI for the output image"
     )
     parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Enable verbose logging"
-    )
-    
-    # GraphML mode arguments
-    parser.add_argument(
-        "--input",
-        help="Input GraphML file (for graphml and combined modes)"
-    )
-    parser.add_argument(
-        "--node-size",
-        type=int,
-        default=10,
-        help="Node size for GraphML visualization"
-    )
-    parser.add_argument(
-        "--edge-width",
-        type=float,
-        default=0.5,
-        help="Edge width for GraphML visualization"
-    )
-    parser.add_argument(
         "--show-labels",
         action="store_true",
-        help="Show node labels in GraphML visualization"
-    )
-    
-    # Water obstacles mode arguments
-    parser.add_argument(
-        "--conn-string",
-        help="PostgreSQL connection string (for water and combined modes)"
-    )
-    parser.add_argument(
-        "--extent",
-        help="Bounding box to limit the visualization (min_x,min_y,max_x,max_y)"
-    )
-    parser.add_argument(
-        "--no-terrain-grid",
-        action="store_true",
-        help="Don't show the terrain grid"
-    )
-    parser.add_argument(
-        "--no-terrain-edges",
-        action="store_true",
-        help="Don't show the terrain edges"
-    )
-    parser.add_argument(
-        "--no-water-edges",
-        action="store_true",
-        help="Don't show the water edges"
-    )
-    parser.add_argument(
-        "--no-decision-info",
-        action="store_true",
-        help="Don't show the decision tracking information"
+        help="Show node labels"
     )
     
     args = parser.parse_args()
     
-    # Set log level
-    if args.verbose:
-        logger.setLevel(logging.DEBUG)
-    
-    # Validate arguments
+    # Check required arguments
     if args.mode in ["graphml", "combined"] and not args.input:
-        logger.error(f"Input GraphML file is required for {args.mode} mode")
-        return 1
+        parser.error(f"--input is required for {args.mode} mode")
     
-    # Run the selected visualization mode
+    # Run the selected visualization
     if args.mode == "graphml":
         return visualize_graphml(args)
     elif args.mode == "water":
-        return visualize_water_obstacles(args)
+        return visualize_water(args)
     elif args.mode == "combined":
         return visualize_combined(args)
     else:

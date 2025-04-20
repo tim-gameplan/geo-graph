@@ -6,7 +6,10 @@ This script:
 1. Connects to the PostgreSQL database
 2. Extracts water buffers, terrain grid, and edges
 3. Creates a visualization using matplotlib
-4. Saves the visualization to a file
+4. Saves the visualization to a file with a timestamp
+
+The visualization is saved to the output/visualizations/water directory
+with a timestamp in the filename.
 """
 
 import os
@@ -23,13 +26,20 @@ import matplotlib.colors as mcolors
 import numpy as np
 from shapely.geometry import box
 
+# Add the project root to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+
+# Import file management utilities
+from utils.file_management import get_visualization_path, get_log_path
+
 # Configure logging
+log_path = get_log_path("water_visualization")
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('visualization.log')
+        logging.FileHandler(log_path)
     ]
 )
 logger = logging.getLogger('visualization')
@@ -230,13 +240,14 @@ def get_data_for_visualization(
 
 def create_visualization(
     data: Dict[str, Any],
-    output_file: str,
+    output_file: Optional[str] = None,
     title: Optional[str] = None,
     show_terrain_grid: bool = True,
     show_terrain_edges: bool = True,
     show_water_edges: bool = True,
     show_decision_info: bool = True,
-    dpi: int = 300
+    dpi: int = 300,
+    description: str = "water_obstacles"
 ) -> None:
     """
     Create a visualization of water obstacles and terrain grid.
@@ -248,7 +259,9 @@ def create_visualization(
         show_terrain_grid: Whether to show the terrain grid
         show_terrain_edges: Whether to show the terrain edges
         show_water_edges: Whether to show the water edges
+        show_decision_info: Whether to show decision tracking information
         dpi: DPI for the output image
+        description: Description for the visualization filename
     
     Raises:
         Exception: If visualization fails
@@ -379,6 +392,16 @@ def create_visualization(
         ax.set_xlabel("")
         ax.set_ylabel("")
         
+        # Determine output file path
+        if output_file is None:
+            # Get visualization path with timestamp
+            output_file = get_visualization_path(
+                viz_type="water",
+                description=description,
+                parameters=None,
+                extension="png"
+            )
+        
         # Save the visualization
         plt.tight_layout()
         plt.savefig(output_file, dpi=dpi)
@@ -386,7 +409,7 @@ def create_visualization(
         
         # Close the figure to free memory
         plt.close(fig)
-    
+        
     except Exception as e:
         logger.error(f"Error creating visualization: {e}")
         raise
@@ -397,8 +420,12 @@ def main():
     parser = argparse.ArgumentParser(description="Visualize water obstacles and terrain grid")
     parser.add_argument(
         "--output",
-        default="water_obstacles.png",
-        help="Output file path"
+        help="Output file path (default: auto-generated with timestamp)"
+    )
+    parser.add_argument(
+        "--description",
+        default="water_obstacles",
+        help="Description for the visualization filename"
     )
     parser.add_argument(
         "--title",
@@ -484,7 +511,8 @@ def main():
                 show_terrain_edges=not args.no_terrain_edges,
                 show_water_edges=not args.no_water_edges,
                 show_decision_info=not args.no_decision_info,
-                dpi=args.dpi
+                dpi=args.dpi,
+                description=args.description
             )
             
             return 0
