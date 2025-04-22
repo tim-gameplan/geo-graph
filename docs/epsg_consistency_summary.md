@@ -25,6 +25,8 @@ The EPSG Consistency Implementation Plan consists of the following parts:
 
 6. **[Delaunay Triangulation Implementation](delaunay_triangulation_implementation.md)**: Detailed documentation on the Delaunay triangulation approach for terrain grid generation.
 
+7. **[Unified Delaunay Pipeline](unified_delaunay_pipeline.md)**: Documentation for the unified Delaunay triangulation pipeline optimized for large datasets.
+
 ## Key Goals
 
 1. **Ensure consistent use of EPSG:3857 (Web Mercator)** for all internal processing
@@ -32,6 +34,7 @@ The EPSG Consistency Implementation Plan consists of the following parts:
 3. **Improve accuracy and performance** of spatial operations
 4. **Maintain backward compatibility** with existing code
 5. **Enhance terrain representation** using Delaunay triangulation
+6. **Scale to large datasets** using spatial partitioning and parallel processing
 
 ## Implementation Phases
 
@@ -97,9 +100,11 @@ The CRS standardization provides several benefits:
 - `planning/scripts/run_water_obstacle_pipeline_crs.py`
 - `planning/scripts/run_water_obstacle_pipeline_delaunay.py`
 - `scripts/run_unified_pipeline_3857.py`
+- `scripts/run_unified_delaunay_pipeline.py`
 - `tools/export_slice_3857.py`
 - `visualize_graph_3857.py`
 - `planning/scripts/visualize_water_obstacles_3857.py`
+- `planning/scripts/visualize_delaunay_triangulation.py`
 
 ### Configuration Files
 - `planning/config/crs_standardized_config.json`
@@ -115,6 +120,7 @@ The CRS standardization provides several benefits:
 - `docs/epsg_consistency_integration_and_conclusion.md`
 - `docs/epsg_consistency_training_and_conclusion.md`
 - `docs/delaunay_triangulation_implementation.md`
+- `docs/unified_delaunay_pipeline.md`
 - `docs/crs_standardization_training.md`
 - `docs/crs_standardization_workshop.md`
 
@@ -128,6 +134,9 @@ python planning/scripts/run_water_obstacle_pipeline_crs.py --config planning/con
 
 # Run the water obstacle pipeline with Delaunay triangulation
 python planning/scripts/run_water_obstacle_pipeline_delaunay.py --config planning/config/crs_standardized_config.json
+
+# Run the unified Delaunay pipeline for large datasets
+python scripts/run_unified_delaunay_pipeline.py --threads 8 --chunk-size 5000
 ```
 
 ### Running the Unified Pipeline
@@ -161,8 +170,9 @@ After implementing the EPSG consistency plan and Delaunay triangulation, the fol
 4. **Documentation improvements**: Continue to improve the documentation and training materials.
 5. **Triangulation enhancements**: Explore additional enhancements to the Delaunay triangulation approach, such as:
    - Incorporating terrain slope into edge cost calculation
-   - Implementing spatial partitioning for large datasets
+   - Implementing GPU acceleration for triangulation
    - Creating specific visualization tools for the triangulation
+   - Extending the unified pipeline to distributed processing
 
 ## Conclusion
 
@@ -172,4 +182,6 @@ The implementation has been completed over a 4-week period, with each phase buil
 
 The addition of Delaunay triangulation for terrain grid generation represents a significant enhancement to the pipeline. This approach provides more natural terrain representation, better adaptation to irregular water boundaries, and optimal connectivity, resulting in more accurate and efficient routing.
 
-By combining consistent CRS usage with advanced terrain modeling techniques, the Terrain System pipeline now provides a solid foundation for accurate and efficient spatial operations in a wide range of geographic contexts.
+The unified Delaunay pipeline further extends these capabilities to large datasets through spatial partitioning, parallel processing, and memory optimization. This enables the processing of extensive geographic areas while maintaining the benefits of Delaunay triangulation and consistent CRS usage.
+
+By combining consistent CRS usage with advanced terrain modeling techniques and scalable processing capabilities, the Terrain System pipeline now provides a solid foundation for accurate and efficient spatial operations in a wide range of geographic contexts and scales.
