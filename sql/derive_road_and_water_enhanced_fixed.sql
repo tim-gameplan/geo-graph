@@ -47,12 +47,14 @@ WHERE highway IS NOT NULL;
 
 CREATE INDEX ON road_edges USING GIST(geom);
 
--- water polygons: rivers, lakes, etc. with additional attributes
+-- water features: rivers, lakes, etc. with additional attributes
 DROP TABLE IF EXISTS water_polys;
 CREATE TABLE water_polys AS
+-- Polygon water features
 SELECT
     osm_id AS id,
     way AS geom,
+    'polygon' AS feature_type,
     name,
     water,
     "natural",
@@ -70,6 +72,25 @@ SELECT
 FROM planet_osm_polygon
 WHERE water IS NOT NULL
    OR "natural" = 'water'
-   OR landuse = 'reservoir';
+   OR landuse = 'reservoir'
+
+UNION ALL
+
+-- Linear water features (rivers, streams, canals, etc.)
+SELECT
+    osm_id AS id,
+    way AS geom,
+    'line' AS feature_type,
+    name,
+    NULL AS water,
+    NULL AS "natural",
+    waterway,
+    NULL AS landuse,
+    -- Additional attributes
+    width,
+    intermittent,
+    waterway AS water_type
+FROM planet_osm_line
+WHERE waterway IN ('river', 'stream', 'canal', 'drain', 'ditch');
 
 CREATE INDEX ON water_polys USING GIST(geom);

@@ -82,35 +82,35 @@ def visualize_graphml(args):
 def visualize_water(args):
     """
     Visualize water obstacles.
-    
+
     Args:
         args: Command-line arguments
-    
+
     Returns:
-        Exit code (0 for success, non-zero for failure)
+        Exit code (0 for success non-zero for failure)
     """
     logger.info("Visualizing water obstacles")
-    
-    # Import the visualize_water_obstacles module
+
+    # Import the visualize_water_obstacles_fixed module
     visualize_water_path = os.path.join(
         os.path.dirname(__file__),
-        "planning/scripts/visualize_water_obstacles.py"
+        "planning/scripts/visualize_water_obstacles_fixed.py"
     )
-    
+
     # Build command
     cmd = [
         "python", visualize_water_path,
         "--output", args.output if args.output else get_visualization_path(
             viz_type='water',
-            description='water_obstacles',
+            description='water_obstacles_fixed',
             parameters={'dpi': args.dpi}
         ),
         "--dpi", str(args.dpi)
     ]
-    
+
     if args.title:
         cmd.extend(["--title", args.title])
-    
+
     if args.show_labels:
         cmd.append("--show-labels")
     
