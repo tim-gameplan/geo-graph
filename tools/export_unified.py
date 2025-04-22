@@ -95,19 +95,18 @@ def export_enhanced(args):
     export_path = os.path.join(os.path.dirname(__file__), "export_slice_enhanced_fixed.py")
     export_module = import_module_from_path("export_slice_enhanced_fixed", export_path)
     
-    # Prepare arguments for export_slice_enhanced_fixed.main()
-    export_args = argparse.Namespace(
-        lon=args.lon,
-        lat=args.lat,
-        minutes=args.minutes,
-        outfile=args.output,
-        valhalla=args.valhalla,
-        include_geometry=args.include_geometry
-    )
-    
-    # Run the export
+    # Run the export using the slice function directly
     try:
-        return export_module.main(export_args)
+        # The export_slice_enhanced_fixed.py script uses Typer and has a slice() function
+        export_module.slice(
+            lon=args.lon,
+            lat=args.lat,
+            minutes=args.minutes,
+            outfile=args.output,
+            valhalla=args.valhalla,
+            include_geometry=args.include_geometry
+        )
+        return 0
     except Exception as e:
         logger.error(f"Error exporting enhanced slice: {e}")
         return 1

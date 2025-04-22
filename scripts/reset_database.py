@@ -17,6 +17,7 @@ from pathlib import Path
 
 # SQL for resetting only the derived tables
 RESET_DERIVED_TABLES_SQL = """
+-- Original pipeline tables
 DROP TABLE IF EXISTS road_edges CASCADE;
 DROP TABLE IF EXISTS water_polys CASCADE;
 DROP TABLE IF EXISTS water_buf CASCADE;
@@ -25,6 +26,38 @@ DROP TABLE IF EXISTS water_edges CASCADE;
 DROP TABLE IF EXISTS terrain_edges CASCADE;
 DROP TABLE IF EXISTS unified_edges CASCADE;
 DROP TABLE IF EXISTS grid_profile CASCADE;
+
+-- Water obstacle pipeline tables
+DROP TABLE IF EXISTS water_features CASCADE;
+DROP TABLE IF EXISTS water_buf_dissolved CASCADE;
+DROP TABLE IF EXISTS environmental_conditions CASCADE;
+DROP TABLE IF EXISTS water_edges_original CASCADE;
+DROP VIEW IF EXISTS current_environment CASCADE;
+
+-- Water edge comparison tables
+DROP TABLE IF EXISTS water_edges_original CASCADE;
+DROP TABLE IF EXISTS water_edges_dissolved CASCADE;
+"""
+
+# SQL for detecting and dropping any additional derived tables
+DETECT_DERIVED_TABLES_SQL = """
+SELECT string_agg('DROP TABLE IF EXISTS ' || tablename || ' CASCADE;', E'\n') AS drop_tables_sql
+FROM pg_tables
+WHERE schemaname = 'public'
+  AND tablename NOT IN (
+    'spatial_ref_sys', 'geography_columns', 'geometry_columns', 
+    'planet_osm_line', 'planet_osm_nodes', 'planet_osm_point', 
+    'planet_osm_polygon', 'planet_osm_rels', 'planet_osm_roads', 
+    'planet_osm_ways', 'osm2pgsql_properties'
+  );
+"""
+
+# SQL for detecting and dropping any additional views
+DETECT_DERIVED_VIEWS_SQL = """
+SELECT string_agg('DROP VIEW IF EXISTS ' || viewname || ' CASCADE;', E'\n') AS drop_views_sql
+FROM pg_views
+WHERE schemaname = 'public'
+  AND viewname NOT IN ('geography_columns', 'geometry_columns');
 """
 
 # SQL for creating extensions
@@ -89,7 +122,32 @@ def reset_derived_tables(container_name):
     """Reset only the derived tables."""
     print("Resetting derived tables...")
     
+    # First, drop the known derived tables
     execute_sql(container_name, RESET_DERIVED_TABLES_SQL)
+    
+    # Then, detect and drop any additional derived tables
+    result = execute_sql(container_name, DETECT_DERIVED_TABLES_SQL)
+    if result and result.returncode == 0:
+        # Parse the result to extract the SQL
+        lines = result.stdout.strip().split('\n')
+        if len(lines) >= 3 and lines[0].strip() == 'drop_tables_sql':
+            # Skip header and separator lines
+            additional_tables_sql = lines[2].strip()
+            if additional_tables_sql and additional_tables_sql != "":
+                print("Dropping additional derived tables...")
+                execute_sql(container_name, additional_tables_sql)
+    
+    # Finally, detect and drop any additional views
+    result = execute_sql(container_name, DETECT_DERIVED_VIEWS_SQL)
+    if result and result.returncode == 0:
+        # Parse the result to extract the SQL
+        lines = result.stdout.strip().split('\n')
+        if len(lines) >= 3 and lines[0].strip() == 'drop_views_sql':
+            # Skip header and separator lines
+            additional_views_sql = lines[2].strip()
+            if additional_views_sql and additional_views_sql != "":
+                print("Dropping additional derived views...")
+                execute_sql(container_name, additional_views_sql)
     
     print("Derived tables reset complete.")
     return True
@@ -134,15 +192,23 @@ def import_osm_data(container_name, osm_file, use_docker=True):
             "-U", "gis",
             "-H", "localhost",
             "-P", "5432",
-            "-W",
+            # Use PGPASSWORD environment variable to avoid password prompt
             osm_file
         ]
+        
+        # Set PGPASSWORD environment variable
+        env = os.environ.copy()
+        env["PGPASSWORD"] = "gis"  # Default password for development
     
     print(f"Executing: {' '.join(cmd)}")
     
     try:
         # For interactive commands, we don't capture stdout/stderr
-        subprocess.run(cmd, check=True)
+        if use_docker:
+            subprocess.run(cmd, check=True)
+        else:
+            # Use the environment with PGPASSWORD for local osm2pgsql
+            subprocess.run(cmd, env=env, check=True)
         print("OSM data import complete.")
         return True
     except subprocess.SubprocessError as e:

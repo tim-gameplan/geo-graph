@@ -134,7 +134,7 @@ def get_data_for_visualization(
             spatial_filter = f"""
                 WHERE ST_Intersects(
                     geom,
-                    ST_MakeEnvelope({min_x}, {min_y}, {max_x}, {max_y}, 4326)
+                    ST_SetSRID(ST_MakeEnvelope({min_x}, {min_y}, {max_x}, {max_y}), ST_SRID(geom))
                 )
             """
         
@@ -163,7 +163,7 @@ def get_data_for_visualization(
         limit_clause = "LIMIT 10000" if limit_rows else ""
         terrain_query = f"""
             SELECT 
-                id,
+                ROW_NUMBER() OVER() as id,
                 cost,
                 geom
             FROM terrain_grid
@@ -184,7 +184,7 @@ def get_data_for_visualization(
             SELECT 
                 id,
                 cost,
-                length_m,
+                ST_Length(ST_Transform(geom, 4326)::geography) AS length_m,
                 geom
             FROM terrain_edges
             {spatial_filter}
@@ -204,13 +204,24 @@ def get_data_for_visualization(
             SELECT 
                 id,
                 cost,
-                crossability,
-                crossability_group,
-                buffer_rules_applied,
-                crossability_rules_applied,
-                avg_buffer_size_m,
-                edge_type,
-                length_m,
+                water_type,
+                name,
+                width,
+                intermittent,
+                ST_Length(ST_Transform(geom, 4326)::geography) AS length_m,
+                CASE 
+                    WHEN intermittent = 'yes' THEN 50
+                    ELSE 30
+                END AS crossability,
+                CASE 
+                    WHEN water_type = 'water' THEN 'lake'
+                    WHEN water_type = 'natural' THEN 'river'
+                    ELSE water_type
+                END AS crossability_group,
+                'default' AS buffer_rules_applied,
+                'default' AS crossability_rules_applied,
+                50 AS avg_buffer_size_m,
+                'water' AS edge_type,
                 geom
             FROM water_edges
             {spatial_filter}
@@ -317,10 +328,14 @@ def create_visualization(
             
             # Color by cost
             water_edge_cmap = plt.cm.Reds
-            water_edge_norm = mcolors.Normalize(
-                vmin=water_edges['cost'].min(),
-                vmax=min(water_edges['cost'].max(), 100)  # Cap at 100 for better visualization
-            )
+            min_cost = water_edges['cost'].min()
+            max_cost = min(water_edges['cost'].max(), 100)  # Cap at 100 for better visualization
+            
+            # Ensure min and max are different to avoid normalization error
+            if min_cost >= max_cost:
+                max_cost = min_cost + 1
+                
+            water_edge_norm = mcolors.Normalize(vmin=min_cost, vmax=max_cost)
             
             water_edges.plot(
                 ax=ax,

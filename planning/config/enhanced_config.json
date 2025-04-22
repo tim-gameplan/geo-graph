@@ -1,0 +1,51 @@
+{
+    "water_features": {
+        "polygon_types": ["water", "natural=water", "landuse=reservoir"],
+        "line_types": ["river", "stream", "canal", "drain", "ditch"],
+        "min_area_sqm": 10000,
+        "include_intermittent": true
+    },
+    "buffer_sizes": {
+        "default": 50,
+        "river": 100,
+        "stream": 30,
+        "canal": 40,
+        "drain": 20,
+        "ditch": 10,
+        "lake": 80,
+        "pond": 40,
+        "reservoir": 60
+    },
+    "crossability": {
+        "default": 50,
+        "river": 10,
+        "stream": 30,
+        "canal": 20,
+        "drain": 40,
+        "ditch": 60,
+        "lake": 5,
+        "pond": 20,
+        "reservoir": 15,
+        "intermittent_multiplier": 2.0
+    },
+    "terrain_grid": {
+        "cell_size": 200,
+        "connection_distance": 300
+    },
+    "environmental_conditions": {
+        "rainfall": 0.0,
+        "snow_depth": 0.0,
+        "temperature": 20.0
+    },
+    "dissolve": {
+        "use_improved": true,
+        "simplify_tolerance_m": 5,
+        "work_mem_mb": 256,
+        "parallel_workers": 4
+    },
+    "visualization": {
+        "dpi": 300,
+        "figsize": [12, 10],
+        "title": "Enhanced Water Obstacles"
+    }
+}

@@ -165,6 +165,61 @@ def visualize_combined(args):
     return 0
 
 
+def visualize_delaunay(args):
+    """
+    Visualize Delaunay triangulation.
+    
+    Args:
+        args: Command-line arguments
+    
+    Returns:
+        Exit code (0 for success, non-zero for failure)
+    """
+    logger.info("Visualizing Delaunay triangulation")
+    
+    # Import the visualize_delaunay_triangulation module
+    visualize_delaunay_path = os.path.join(
+        os.path.dirname(__file__),
+        "planning/scripts/visualize_delaunay_triangulation.py"
+    )
+    
+    # Build command
+    cmd = [
+        "python", visualize_delaunay_path,
+        "--output", args.output if args.output else get_visualization_path(
+            viz_type='terrain',
+            description='delaunay_triangulation',
+            parameters={'dpi': args.dpi}
+        ),
+        "--dpi", str(args.dpi)
+    ]
+    
+    if args.title:
+        cmd.extend(["--title", args.title])
+    
+    # Run the command
+    try:
+        result = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True
+        )
+        
+        logger.info(result.stdout)
+        if result.stderr:
+            logger.warning(result.stderr)
+        
+        return 0
+    
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error visualizing Delaunay triangulation: {e}")
+        logger.error(f"Command output: {e.stdout}")
+        logger.error(f"Command error output: {e.stderr}")
+        return e.returncode
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -178,6 +233,9 @@ Examples:
   # Visualize water obstacles
   python visualize_unified.py --mode water
   
+  # Visualize Delaunay triangulation
+  python visualize_unified.py --mode delaunay
+  
   # Create a combined visualization
   python visualize_unified.py --mode combined --input slice.graphml
 """
@@ -186,7 +244,7 @@ Examples:
     # Mode selection
     parser.add_argument(
         "--mode",
-        choices=["graphml", "water", "combined"],
+        choices=["graphml", "water", "delaunay", "combined"],
         default="graphml",
         help="Visualization mode"
     )
@@ -227,6 +285,8 @@ Examples:
         return visualize_graphml(args)
     elif args.mode == "water":
         return visualize_water(args)
+    elif args.mode == "delaunay":
+        return visualize_delaunay(args)
     elif args.mode == "combined":
         return visualize_combined(args)
     else:

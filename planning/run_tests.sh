@@ -28,6 +28,32 @@ echo "Running import tests..."
 echo "Import tests passed!"
 echo
 
+# Run CRS standardization tests
+echo "Running CRS standardization tests..."
+./planning/tests/test_crs_standardization.py
+echo "CRS standardization tests passed!"
+echo
+
+# Ask if the user wants to run the Delaunay triangulation tests
+read -p "Do you want to run the Delaunay triangulation tests? (y/n) " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    # Run the Delaunay triangulation tests
+    echo "Running Delaunay triangulation tests..."
+    ./planning/tests/test_delaunay_triangulation.py
+    
+    # Check if the test was successful
+    if [ $? -eq 0 ]; then
+        echo "Delaunay triangulation tests completed successfully!"
+    else
+        echo "Error: Delaunay triangulation tests failed."
+        exit 1
+    fi
+else
+    echo "Skipping Delaunay triangulation tests."
+fi
+echo
+
 # Ask if the user wants to run the full pipeline
 read -p "Do you want to run the full pipeline test? (y/n) " -n 1 -r
 echo
