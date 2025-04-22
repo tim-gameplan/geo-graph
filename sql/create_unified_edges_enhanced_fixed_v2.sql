@@ -8,8 +8,8 @@ DROP TABLE IF EXISTS unified_edges CASCADE;
 CREATE TABLE unified_edges AS
 SELECT 
     id, 
-    source, 
-    target, 
+    -- source, -- Populated by pgr_createTopology
+    -- target, -- Populated by pgr_createTopology
     cost, 
     geom,
     -- Original attributes
@@ -38,8 +38,8 @@ FROM road_edges
 UNION ALL
 SELECT 
     id, 
-    source, 
-    target, 
+    -- source, 
+    -- target, 
     cost, 
     geom,
     name,
@@ -66,8 +66,8 @@ FROM water_edges
 UNION ALL
 SELECT 
     id, 
-    source, 
-    target, 
+    -- source, 
+    -- target, 
     cost, 
     geom,
     NULL AS name,
