@@ -1,3 +1,10 @@
+/*
+ * Water Edges Creation
+ * 
+ * This script creates edges that cross water obstacles.
+ * These edges have higher costs to represent the difficulty of crossing water.
+ */
+
 -- Create water edges with EPSG:3857 coordinates
 -- Parameters:
 -- :storage_srid - SRID for storage (default: 3857)
@@ -10,6 +17,7 @@ CREATE TABLE water_edges (
     source_id INTEGER,
     target_id INTEGER,
     length NUMERIC,
+    cost NUMERIC, -- Travel time cost
     water_obstacle_id INTEGER,
     speed_factor NUMERIC,
     geom GEOMETRY(LINESTRING, :storage_srid)
@@ -35,16 +43,17 @@ nearest_terrain_points AS (
     FROM 
         water_boundary_points wbp
     CROSS JOIN 
-        terrain_grid tg
+        terrain_grid_points tg
     ORDER BY 
         wbp.geom, ST_Distance(wbp.geom, tg.geom)
 )
 -- Create water edges between terrain grid points that are near water obstacles
-INSERT INTO water_edges (source_id, target_id, length, water_obstacle_id, speed_factor, geom)
+INSERT INTO water_edges (source_id, target_id, length, cost, water_obstacle_id, speed_factor, geom)
 SELECT 
     ntp1.terrain_point_id AS source_id,
     ntp2.terrain_point_id AS target_id,
-    ST_Length(ST_MakeLine(ntp1.terrain_point, ntp2.terrain_point)) * (1.0 / :water_speed_factor) AS length,
+    ST_Length(ST_MakeLine(ntp1.terrain_point, ntp2.terrain_point)) AS length,
+    ST_Length(ST_MakeLine(ntp1.terrain_point, ntp2.terrain_point)) / (5.0 * :water_speed_factor) AS cost, -- Slower speed in water
     ntp1.water_obstacle_id,
     :water_speed_factor,
     ST_MakeLine(ntp1.terrain_point, ntp2.terrain_point) AS geom
@@ -79,17 +88,19 @@ CREATE TABLE unified_edges (
     source_id INTEGER,
     target_id INTEGER,
     length NUMERIC,
+    cost NUMERIC, -- Travel time cost
     edge_type TEXT,
     speed_factor NUMERIC,
     geom GEOMETRY(LINESTRING, :storage_srid)
 );
 
 -- Insert terrain edges
-INSERT INTO unified_edges (source_id, target_id, length, edge_type, speed_factor, geom)
+INSERT INTO unified_edges (source_id, target_id, length, cost, edge_type, speed_factor, geom)
 SELECT 
     source_id,
     target_id,
     length,
+    cost,
     'terrain',
     1.0,
     geom
@@ -97,11 +108,12 @@ FROM
     terrain_edges;
 
 -- Insert water edges
-INSERT INTO unified_edges (source_id, target_id, length, edge_type, speed_factor, geom)
+INSERT INTO unified_edges (source_id, target_id, length, cost, edge_type, speed_factor, geom)
 SELECT 
     source_id,
     target_id,
     length,
+    cost,
     'water',
     speed_factor,
     geom

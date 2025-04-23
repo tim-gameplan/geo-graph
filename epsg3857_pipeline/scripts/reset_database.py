@@ -53,6 +53,17 @@ def run_sql_command(command):
 
 def reset_derived_tables():
     """Reset derived tables."""
+    # First drop views
+    views = [
+        "water_features"
+    ]
+    
+    for view in views:
+        if not run_sql_command(f"DROP VIEW IF EXISTS {view} CASCADE"):
+            logger.error(f"Failed to drop view {view}")
+            return False
+    
+    # Then drop tables
     tables = [
         "graph_topology",
         "graph_vertices",
@@ -69,7 +80,8 @@ def reset_derived_tables():
         "water_obstacles",
         "dissolved_water_buffers",
         "water_buffers",
-        "water_features"
+        "water_features_polygon",
+        "water_features_line"
     ]
     
     for table in tables:

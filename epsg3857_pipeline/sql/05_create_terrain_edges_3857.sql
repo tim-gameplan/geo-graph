@@ -1,3 +1,10 @@
+/*
+ * Terrain Edges Creation
+ * 
+ * This script creates edges between terrain grid points.
+ * It uses the centroids of the hexagonal grid cells as nodes.
+ */
+
 -- Create terrain edges with EPSG:3857 coordinates
 -- Parameters:
 -- :storage_srid - SRID for storage (default: 3857)
@@ -7,23 +14,25 @@
 DROP TABLE IF EXISTS terrain_edges CASCADE;
 CREATE TABLE terrain_edges (
     id SERIAL PRIMARY KEY,
-    source_id INTEGER REFERENCES terrain_grid(id),
-    target_id INTEGER REFERENCES terrain_grid(id),
+    source_id INTEGER REFERENCES terrain_grid_points(id),
+    target_id INTEGER REFERENCES terrain_grid_points(id),
     length NUMERIC,
+    cost NUMERIC, -- Travel time cost
     geom GEOMETRY(LINESTRING, :storage_srid)
 );
 
 -- Create edges between adjacent grid points
-INSERT INTO terrain_edges (source_id, target_id, length, geom)
+INSERT INTO terrain_edges (source_id, target_id, length, cost, geom)
 SELECT 
     t1.id AS source_id,
     t2.id AS target_id,
     ST_Length(ST_MakeLine(t1.geom, t2.geom)) AS length,
+    ST_Length(ST_MakeLine(t1.geom, t2.geom)) / 5.0 AS cost, -- Assuming 5 m/s average speed
     ST_MakeLine(t1.geom, t2.geom) AS geom
 FROM 
-    terrain_grid t1
+    terrain_grid_points t1
 CROSS JOIN 
-    terrain_grid t2
+    terrain_grid_points t2
 WHERE 
     t1.id < t2.id AND
     ST_DWithin(t1.geom, t2.geom, :max_edge_length) AND

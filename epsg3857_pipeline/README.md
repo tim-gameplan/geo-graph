@@ -127,9 +127,44 @@ The pipeline is configured using JSON files in the `epsg3857_pipeline/config/` d
 }
 ```
 
+## Data Model
+
+### Water Features
+
+The water features are stored using a typed table approach:
+
+- **water_features_polygon**: Contains polygon water features (lakes, reservoirs)
+- **water_features_line**: Contains line water features (rivers, streams)
+- **water_features**: View that unifies both tables for backward compatibility
+
+This design provides type safety, performance benefits, and a clearer data model
+while maintaining compatibility with existing code through the view.
+
+When querying:
+- Use `water_features_polygon` or `water_features_line` directly when you only need one geometry type
+- Use the `water_features` view when you need both types or for backward compatibility
+
+### Terrain Grid
+
+The terrain grid uses a hexagonal grid approach:
+
+- **terrain_grid**: Contains hexagonal grid cells that avoid water obstacles
+- **terrain_grid_points**: Contains the centroids of the grid cells, used for connectivity
+
+Benefits of the hexagonal grid:
+- More natural-looking terrain representation
+- Equal distances between adjacent cells
+- Better adaptation to natural features
+- More efficient movement patterns
+
+The terrain grid is created by:
+1. Generating a hexagonal grid covering the extent of the data
+2. Filtering out cells that intersect with water obstacles
+3. Creating centroids for each cell for connectivity
+
 ## Pipeline Stages
 
-1. **Extract Water Features**: Extract water features from OSM data with EPSG:3857 coordinates
+1. **Extract Water Features**: Extract water features from OSM data with EPSG:3857 coordinates into typed tables
 2. **Create Water Buffers**: Create buffers around water features using metric distances
 3. **Dissolve Water Buffers**: Dissolve overlapping water buffers with proper simplification
 4. **Create Terrain Grid**: Create a terrain grid using either a regular grid or Delaunay triangulation
@@ -193,6 +228,7 @@ For more detailed documentation, see:
 - [Delaunay Triangulation Implementation](../docs/delaunay_triangulation_implementation.md)
 - [Unified Delaunay Pipeline](../docs/unified_delaunay_pipeline.md)
 - [EPSG Consistency Summary](../docs/epsg_consistency_summary.md)
+- [Database Schema](./docs/database_schema.md) - Detailed database schema documentation
 - [Development Worklog](./worklog.md) - Track development progress, issues, and solutions
 - [Test Plan](./test_plan.md) - Comprehensive testing strategy and test cases
 

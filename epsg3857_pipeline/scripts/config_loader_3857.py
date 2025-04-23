@@ -165,7 +165,9 @@ class ConfigLoader:
         
         # Add water buffer sizes
         for feature_type, buffer_size in water_buffers.items():
+            # Add both naming conventions for backward compatibility
             params[f'buffer_{feature_type}'] = buffer_size
+            params[f'{feature_type}_buffer'] = buffer_size
         
         return params
 

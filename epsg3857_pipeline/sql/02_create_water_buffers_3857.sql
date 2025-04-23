@@ -1,3 +1,10 @@
+/*
+ * Water Buffers Creation
+ * 
+ * This script creates buffers around water features using the typed tables approach.
+ * It directly uses water_features_polygon and water_features_line tables for better performance.
+ */
+
 -- Create water buffers with EPSG:3857 coordinates
 -- Parameters:
 -- :storage_srid - SRID for storage (default: 3857)
@@ -10,15 +17,17 @@
 DROP TABLE IF EXISTS water_buffers CASCADE;
 CREATE TABLE water_buffers (
     id SERIAL PRIMARY KEY,
-    water_feature_id INTEGER REFERENCES water_features(id),
+    water_feature_id INTEGER,
+    feature_type TEXT, -- 'polygon' or 'line'
     buffer_size NUMERIC,
     geom GEOMETRY(GEOMETRY, :storage_srid)
 );
 
 -- Create buffers for water polygons
-INSERT INTO water_buffers (water_feature_id, buffer_size, geom)
+INSERT INTO water_buffers (water_feature_id, feature_type, buffer_size, geom)
 SELECT 
     id,
+    'polygon',
     CASE
         WHEN type = 'water' THEN :lake_buffer
         ELSE :default_buffer
@@ -31,14 +40,13 @@ SELECT
         END
     ) AS geom
 FROM 
-    water_features
-WHERE 
-    ST_GeometryType(geom) IN ('ST_Polygon', 'ST_MultiPolygon');
+    water_features_polygon;
 
 -- Create buffers for water lines
-INSERT INTO water_buffers (water_feature_id, buffer_size, geom)
+INSERT INTO water_buffers (water_feature_id, feature_type, buffer_size, geom)
 SELECT 
     id,
+    'line',
     CASE
         WHEN type = 'river' THEN :river_buffer
         WHEN type = 'stream' THEN :stream_buffer
@@ -53,9 +61,7 @@ SELECT
         END
     ) AS geom
 FROM 
-    water_features
-WHERE 
-    ST_GeometryType(geom) IN ('ST_LineString', 'ST_MultiLineString');
+    water_features_line;
 
 -- Create spatial index
 CREATE INDEX water_buffers_geom_idx ON water_buffers USING GIST (geom);
