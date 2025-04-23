@@ -1,0 +1,37 @@
+{
+    "database": {
+        "host": "localhost",
+        "port": 5432,
+        "dbname": "gis",
+        "user": "gis",
+        "password": "gis"
+    },
+    "crs": {
+        "source_srid": 4326,
+        "storage_srid": 3857,
+        "output_srid": 4326
+    },
+    "water_features": {
+        "lake_tags": ["water", "natural=water", "waterway=riverbank", "landuse=reservoir"],
+        "river_tags": ["waterway=river", "waterway=stream", "waterway=canal"],
+        "stream_tags": ["waterway=stream"]
+    },
+    "water_buffers": {
+        "lake": 50,
+        "river": 30,
+        "stream": 10,
+        "default": 20
+    },
+    "terrain_grid": {
+        "grid_spacing": 200,
+        "max_edge_length": 500
+    },
+    "water_edges": {
+        "water_speed_factor": 0.2,
+        "max_edge_distance": 2000
+    },
+    "output": {
+        "export_dir": "output/exports",
+        "visualization_dir": "output/visualizations"
+    }
+}

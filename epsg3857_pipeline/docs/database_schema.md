@@ -69,6 +69,7 @@ A unified view combining water_features_polygon and water_features_line.
 | id | SERIAL | Primary key |
 | geom | GEOMETRY(POLYGON) | Hexagonal grid cell geometry in EPSG:3857 |
 | cost | NUMERIC | Base cost for traversing the cell |
+| is_water | BOOLEAN | Flag indicating if the cell intersects with water (water boundary approach) |
 
 ### terrain_grid_points
 | Column | Type | Description |
@@ -76,6 +77,7 @@ A unified view combining water_features_polygon and water_features_line.
 | id | SERIAL | Primary key |
 | grid_id | INTEGER | Reference to terrain_grid.id |
 | geom | GEOMETRY(POINT) | Centroid point geometry in EPSG:3857 |
+| is_water | BOOLEAN | Flag indicating if the point is in water (water boundary approach) |
 
 ## Terrain Edges Table
 
@@ -87,6 +89,7 @@ A unified view combining water_features_polygon and water_features_line.
 | target_id | INTEGER | Target terrain grid point ID |
 | length | NUMERIC | Edge length in meters |
 | cost | NUMERIC | Edge cost (travel time) |
+| is_water_crossing | BOOLEAN | Flag indicating if the edge crosses water (water boundary approach) |
 | geom | GEOMETRY(LINESTRING) | Edge geometry in EPSG:3857 |
 
 ## Water Edges Table
@@ -100,8 +103,18 @@ A unified view combining water_features_polygon and water_features_line.
 | length | NUMERIC | Edge length in meters |
 | cost | NUMERIC | Edge cost (travel time) |
 | water_obstacle_id | INTEGER | ID of the water obstacle |
+| edge_type | TEXT | Edge type ('boundary' or 'connection' in water boundary approach) |
 | speed_factor | NUMERIC | Speed factor for water (< 1.0) |
 | geom | GEOMETRY(LINESTRING) | Edge geometry in EPSG:3857 |
+
+## Water Boundary Points Table (Water Boundary Approach)
+
+### water_boundary_points
+| Column | Type | Description |
+|--------|------|-------------|
+| id | SERIAL | Primary key |
+| water_obstacle_id | INTEGER | ID of the water obstacle |
+| geom | GEOMETRY(POINT) | Point geometry along water boundary in EPSG:3857 |
 
 ## Environmental Conditions Table
 
@@ -124,8 +137,9 @@ A unified view combining water_features_polygon and water_features_line.
 | target_id | INTEGER | Target terrain grid point ID |
 | length | NUMERIC | Edge length in meters |
 | cost | NUMERIC | Edge cost (travel time) |
-| edge_type | TEXT | Edge type (terrain, water) |
+| edge_type | TEXT | Edge type (terrain, terrain_water, water_boundary, water_connection) |
 | speed_factor | NUMERIC | Speed factor for the edge |
+| is_water | BOOLEAN | Flag indicating if the edge is in water |
 | geom | GEOMETRY(LINESTRING) | Edge geometry in EPSG:3857 |
 
 ## Graph Tables

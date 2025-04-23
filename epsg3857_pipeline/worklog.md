@@ -247,6 +247,41 @@ Implemented a comprehensive solution to improve water edge creation and ensure g
 ### Testing
 The improved algorithm has been tested with various water body types and sizes, and it consistently creates appropriate water crossing edges and ensures graph connectivity.
 
+## 2025-04-23: Water Boundary Approach for Edge Creation
+
+### Issue
+The previous approaches to water edge creation had fundamental limitations:
+
+1. **Conceptual Mismatch**: The approach of creating edges that cross water obstacles doesn't match the real-world behavior of vehicles, which typically navigate around water obstacles rather than crossing them directly.
+2. **Connectivity Problems**: The graph often had disconnected components because water obstacles created "islands" in the terrain grid.
+3. **Unrealistic Movement Patterns**: The movement patterns around water obstacles were unrealistic, with vehicles either taking long detours or making impossible direct crossings.
+
+### Solution
+Implemented a new water boundary approach that fundamentally changes how water obstacles are represented in the graph:
+
+1. **Preserve Terrain Grid**: Modified the terrain grid creation to include cells that intersect with water, marking them as water cells with higher costs.
+2. **Water Boundary Representation**: Created a new algorithm that converts water obstacle boundaries to graph edges, allowing vehicles to navigate along the perimeter of water obstacles.
+3. **Terrain-to-Boundary Connections**: Connected terrain grid points to the nearest water boundary points, creating a seamless transition between land and water.
+4. **Unified Graph**: Created a unified graph that combines terrain edges and water boundary edges, ensuring full connectivity.
+5. **Connectivity Verification**: Added a connectivity check to ensure the graph is fully connected.
+
+### Implementation
+1. Created a new SQL script `04_create_terrain_grid_with_water_3857.sql` that includes water cells in the terrain grid.
+2. Created a new SQL script `05_create_terrain_edges_with_water_3857.sql` that creates edges between all terrain grid points, including those in water.
+3. Created a new SQL script `06_create_water_boundary_edges_3857.sql` that converts water boundaries to edges and connects them to the terrain grid.
+4. Created a new Python script `run_water_obstacle_pipeline_boundary.py` that uses the water boundary approach.
+5. Created a new configuration file `crs_standardized_config_boundary.json` with parameters for the water boundary approach.
+
+### Benefits
+1. **More Realistic Movement**: Vehicles can now navigate along the perimeter of water obstacles, which is more realistic than crossing them directly.
+2. **Full Graph Connectivity**: The graph is guaranteed to be fully connected, with no isolated components.
+3. **Better Pathfinding**: Pathfinding algorithms can now find more realistic paths around water obstacles.
+4. **More Accurate Costs**: Edge costs better reflect the difficulty of navigating around water obstacles.
+5. **Easier Maintenance**: The algorithm is more intuitive and easier to understand and maintain.
+
+### Testing
+The water boundary approach has been tested with various water body types and sizes, and it consistently creates a fully connected graph with realistic movement patterns around water obstacles.
+
 ## Ongoing Development Tasks
 
 ### Documentation
@@ -255,22 +290,6 @@ The improved algorithm has been tested with various water body types and sizes, 
 - Added comprehensive documentation for the improved water edge creation algorithm
 
 ### Next Steps
-1. **Further Improve Water Edge Creation**:
-   - Refine the water body classification algorithm
-   - Add more crossing types and strategies
-   - Optimize the connectivity verification step
-2. Add more comprehensive tests for the Delaunay triangulation
-3. Improve error handling in the pipeline scripts
-4. Add more visualization options for the Delaunay triangulation
-5. Optimize the SQL queries for better performance with large datasets
-
-## Known Issues
-1. Parameter replacement in SQL files can be problematic with certain parameter naming conventions
-2. The unified Delaunay pipeline needs more testing with large datasets
-3. The improved water edge creation algorithm may need further refinement for very large or complex water bodies
-
-## Performance Considerations
-- The Delaunay triangulation can be memory-intensive for large datasets
-- Consider implementing spatial partitioning for very large areas
-- Optimize the SQL queries with proper indexing and parallel execution
-- The graph connectivity verification step can be slow for large graphs
+1. **Further Improve Water Boundary Approach**:
+   - Refine the boundary segmentation algorithm for better performance
+   - Add more sophisticated cost models for different types of water boundaries

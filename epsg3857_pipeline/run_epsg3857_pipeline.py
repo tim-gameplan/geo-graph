@@ -59,10 +59,12 @@ def reset_database():
         "Database reset"
     )
 
-def run_water_obstacle_pipeline(mode="standard", config=None, improved=False):
+def run_water_obstacle_pipeline(mode="standard", config=None, improved=False, boundary=False):
     """Run the water obstacle pipeline."""
     if mode == "standard":
-        if improved:
+        if boundary:
+            cmd = f"python epsg3857_pipeline/scripts/run_water_obstacle_pipeline_boundary.py"
+        elif improved:
             cmd = f"python epsg3857_pipeline/scripts/run_water_obstacle_pipeline_improved.py"
         else:
             cmd = f"python epsg3857_pipeline/scripts/run_water_obstacle_pipeline_crs.py"
@@ -77,7 +79,11 @@ def run_water_obstacle_pipeline(mode="standard", config=None, improved=False):
     
     cmd += f" --sql-dir epsg3857_pipeline/sql"
     
-    mode_desc = f"{mode}" + (" with improved water edge creation" if improved else "")
+    mode_desc = f"{mode}"
+    if boundary:
+        mode_desc += " with water boundary approach"
+    elif improved:
+        mode_desc += " with improved water edge creation"
     return run_command(
         cmd,
         f"Water obstacle pipeline ({mode_desc})"
@@ -151,11 +157,17 @@ Examples:
         help="Pipeline mode"
     )
     
-    # Improved water edge creation
-    parser.add_argument(
+    # Water edge creation options
+    water_edge_group = parser.add_mutually_exclusive_group()
+    water_edge_group.add_argument(
         "--improved-water-edges",
         action="store_true",
         help="Use improved water edge creation algorithm"
+    )
+    water_edge_group.add_argument(
+        "--water-boundary",
+        action="store_true",
+        help="Use water boundary approach for edge creation"
     )
     
     # Configuration
@@ -245,7 +257,7 @@ Examples:
     # Run the pipeline
     if not args.skip_pipeline:
         if args.mode == "standard" or args.mode == "delaunay":
-            if not run_water_obstacle_pipeline(args.mode, args.config, args.improved_water_edges):
+            if not run_water_obstacle_pipeline(args.mode, args.config, args.improved_water_edges, args.water_boundary):
                 logger.error(f"Failed to run the {args.mode} pipeline")
                 return 1
         elif args.mode == "unified-delaunay":

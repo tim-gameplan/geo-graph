@@ -77,6 +77,7 @@ def reset_derived_tables():
         "delaunay_edges",
         "delaunay_triangles",
         "terrain_grid",
+        "terrain_grid_points",
         "water_obstacles",
         "dissolved_water_buffers",
         "water_buffers",
