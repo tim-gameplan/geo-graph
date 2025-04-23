@@ -59,10 +59,13 @@ def reset_database():
         "Database reset"
     )
 
-def run_water_obstacle_pipeline(mode="standard", config=None):
+def run_water_obstacle_pipeline(mode="standard", config=None, improved=False):
     """Run the water obstacle pipeline."""
     if mode == "standard":
-        cmd = f"python epsg3857_pipeline/scripts/run_water_obstacle_pipeline_crs.py"
+        if improved:
+            cmd = f"python epsg3857_pipeline/scripts/run_water_obstacle_pipeline_improved.py"
+        else:
+            cmd = f"python epsg3857_pipeline/scripts/run_water_obstacle_pipeline_crs.py"
     elif mode == "delaunay":
         cmd = f"python epsg3857_pipeline/scripts/run_water_obstacle_pipeline_delaunay.py"
     else:
@@ -74,9 +77,10 @@ def run_water_obstacle_pipeline(mode="standard", config=None):
     
     cmd += f" --sql-dir epsg3857_pipeline/sql"
     
+    mode_desc = f"{mode}" + (" with improved water edge creation" if improved else "")
     return run_command(
         cmd,
-        f"Water obstacle pipeline ({mode})"
+        f"Water obstacle pipeline ({mode_desc})"
     )
 
 def run_unified_delaunay_pipeline(threads=4, chunk_size=5000):
@@ -145,6 +149,13 @@ Examples:
         choices=["standard", "delaunay", "unified-delaunay"],
         default="standard",
         help="Pipeline mode"
+    )
+    
+    # Improved water edge creation
+    parser.add_argument(
+        "--improved-water-edges",
+        action="store_true",
+        help="Use improved water edge creation algorithm"
     )
     
     # Configuration
@@ -234,7 +245,7 @@ Examples:
     # Run the pipeline
     if not args.skip_pipeline:
         if args.mode == "standard" or args.mode == "delaunay":
-            if not run_water_obstacle_pipeline(args.mode, args.config):
+            if not run_water_obstacle_pipeline(args.mode, args.config, args.improved_water_edges):
                 logger.error(f"Failed to run the {args.mode} pipeline")
                 return 1
         elif args.mode == "unified-delaunay":

@@ -140,6 +140,11 @@ class ConfigLoader:
         uphill_speed_factor = env_conditions.get('uphill_speed_factor', 0.8)
         downhill_speed_factor = env_conditions.get('downhill_speed_factor', 1.2)
         
+        # Get water crossing parameters
+        water_crossing = self.config.get('water_crossing', {})
+        connectivity_check_enabled = water_crossing.get('connectivity_check_enabled', True)
+        max_crossing_distance = water_crossing.get('max_crossing_distance', 2000)
+        
         # Get simplify tolerance
         simplify_tolerance = self.get_simplify_tolerance()
         
@@ -160,7 +165,9 @@ class ConfigLoader:
             'uphill_speed_factor': uphill_speed_factor,
             'downhill_speed_factor': downhill_speed_factor,
             'simplify_tolerance': simplify_tolerance,
-            'connection_dist': max_edge_length
+            'connection_dist': max_edge_length,
+            'connectivity_check_enabled': connectivity_check_enabled,
+            'max_crossing_distance': max_crossing_distance
         }
         
         # Add water buffer sizes

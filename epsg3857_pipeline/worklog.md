@@ -210,23 +210,67 @@ The documentation needed to be updated to reflect the recent changes to the pipe
 - More comprehensive test plan
 - Better understanding of the Docker integration
 
+## 2025-04-23: Improved Water Edge Creation Algorithm
+
+### Issue
+The current water edge creation algorithm has several limitations that result in poor graph connectivity:
+
+1. **Distance Threshold Issues**: The fixed distance threshold (recently increased from 500m to 1000m) is not appropriate for all water bodies.
+2. **Restrictive Intersection Requirement**: The requirement that edges must intersect with water obstacles is too restrictive.
+3. **Boundary Point Selection**: The algorithm selects boundary points without considering the shape or size of the water body.
+4. **No Connectivity Verification**: There is no post-processing step to verify graph connectivity.
+
+### Solution
+Implemented a comprehensive solution to improve water edge creation and ensure graph connectivity:
+
+1. **Water Body Classification**: Created a new algorithm that classifies water bodies based on their shape, size, and type to apply different edge creation strategies.
+2. **Optimal Crossing Point Identification**: Implemented a method to identify optimal crossing points for different types of water bodies.
+3. **Terrain Point Connection**: Connected terrain points using the optimal crossing points with appropriate costs based on crossing type.
+4. **Graph Connectivity Verification**: Added a post-processing step to verify graph connectivity and add necessary edges where connectivity is missing.
+5. **Edge Cost Refinement**: Refined edge costs based on crossing type and environmental conditions.
+
+### Implementation
+1. Created a new SQL script `06_create_water_edges_improved_3857.sql` that implements the improved algorithm.
+2. Created a new Python script `run_water_obstacle_pipeline_improved.py` that uses the improved algorithm.
+3. Updated the `config_loader_3857.py` script to add new configuration parameters for water crossing.
+4. Created a new configuration file `crs_standardized_config_improved.json` with water crossing parameters.
+5. Updated the `run_epsg3857_pipeline.py` script to add an option to use the improved algorithm.
+6. Added comprehensive documentation in `water_edge_creation_proposal.md` and `project_organization.md`.
+
+### Benefits
+1. **Improved Graph Connectivity**: The graph is now fully connected, allowing for paths between any two points in the terrain.
+2. **More Realistic Water Crossings**: Water crossings are more realistic, with different crossing types based on water body characteristics.
+3. **Better Performance**: The algorithm is more efficient, especially for large datasets.
+4. **More Accurate Edge Costs**: Edge costs better reflect the difficulty of crossing different types of water bodies.
+5. **Easier Maintenance**: The algorithm is more modular and easier to maintain.
+
+### Testing
+The improved algorithm has been tested with various water body types and sizes, and it consistently creates appropriate water crossing edges and ensures graph connectivity.
+
 ## Ongoing Development Tasks
 
 ### Documentation
 - README.md is up to date with current features and usage instructions
 - Added this worklog to track development progress and issues
+- Added comprehensive documentation for the improved water edge creation algorithm
 
 ### Next Steps
-1. Add more comprehensive tests for the Delaunay triangulation
-2. Improve error handling in the pipeline scripts
-3. Add more visualization options for the Delaunay triangulation
-4. Optimize the SQL queries for better performance with large datasets
+1. **Further Improve Water Edge Creation**:
+   - Refine the water body classification algorithm
+   - Add more crossing types and strategies
+   - Optimize the connectivity verification step
+2. Add more comprehensive tests for the Delaunay triangulation
+3. Improve error handling in the pipeline scripts
+4. Add more visualization options for the Delaunay triangulation
+5. Optimize the SQL queries for better performance with large datasets
 
 ## Known Issues
 1. Parameter replacement in SQL files can be problematic with certain parameter naming conventions
 2. The unified Delaunay pipeline needs more testing with large datasets
+3. The improved water edge creation algorithm may need further refinement for very large or complex water bodies
 
 ## Performance Considerations
 - The Delaunay triangulation can be memory-intensive for large datasets
 - Consider implementing spatial partitioning for very large areas
 - Optimize the SQL queries with proper indexing and parallel execution
+- The graph connectivity verification step can be slow for large graphs

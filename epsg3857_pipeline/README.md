@@ -11,6 +11,8 @@ This pipeline addresses the coordinate reference system (CRS) inconsistency issu
 - **Consistent CRS Usage**: Uses EPSG:3857 (Web Mercator) for all internal processing, ensuring accurate metric-based measurements
 - **Delaunay Triangulation**: Optional terrain grid generation using Delaunay triangulation for more natural terrain representation
 - **Improved Water Feature Processing**: Enhanced water feature extraction, buffering, and dissolving with proper CRS handling
+- **Hexagonal Terrain Grid**: Uses a hexagonal grid for more natural terrain representation and movement patterns
+- **Improved Water Edge Creation**: Advanced algorithm for creating water crossing edges with better graph connectivity
 - **Configurable Parameters**: Extensive configuration options for water features, terrain grid, and environmental conditions
 - **Comprehensive Testing**: Automated tests to verify CRS consistency and triangulation quality
 - **Visualization Tools**: Tools for visualizing the terrain graph, water obstacles, and Delaunay triangulation
@@ -20,13 +22,35 @@ This pipeline addresses the coordinate reference system (CRS) inconsistency issu
 ```
 epsg3857_pipeline/
 ├── config/                 # Configuration files
-│   ├── crs_standardized_config.json  # Standard EPSG:3857 config
-│   └── delaunay_config.json          # Delaunay triangulation config
+│   ├── crs_standardized_config.json         # Standard EPSG:3857 config
+│   ├── crs_standardized_config_improved.json # Config with improved water edge creation
+│   └── delaunay_config.json                 # Delaunay triangulation config
+├── docs/                   # Documentation
+│   ├── database_schema.md                   # Database schema documentation
+│   ├── project_organization.md              # Project structure overview
+│   └── water_edge_creation_proposal.md      # Water edge creation proposal
+├── scripts/                # Python scripts
+│   ├── config_loader_3857.py                # Configuration loader
+│   ├── reset_database.py                    # Database reset utility
+│   ├── run_water_obstacle_pipeline_crs.py   # Standard pipeline runner
+│   ├── run_water_obstacle_pipeline_improved.py # Improved pipeline runner
+│   └── run_water_obstacle_pipeline_delaunay.py # Delaunay pipeline runner
+├── sql/                    # SQL scripts
+│   ├── 01_extract_water_features_3857.sql   # Extract water features
+│   ├── 02_create_water_buffers_3857.sql     # Create water buffers
+│   ├── 03_dissolve_water_buffers_3857.sql   # Dissolve water buffers
+│   ├── 04_create_terrain_grid_3857.sql      # Create terrain grid
+│   ├── 05_create_terrain_edges_3857.sql     # Create terrain edges
+│   ├── 06_create_water_edges_3857.sql       # Create water edges
+│   ├── 06_create_water_edges_improved_3857.sql # Improved water edges
+│   └── 07_create_environmental_tables_3857.sql # Create environmental tables
 ├── tests/                  # Test scripts
-│   ├── test_epsg3857_pipeline.py     # Tests for standard pipeline
-│   └── test_delaunay_pipeline.py     # Tests for Delaunay pipeline
-├── run_epsg3857_pipeline.py  # Main pipeline script
-└── run_tests.sh              # Test runner script
+│   ├── test_epsg3857_pipeline.py            # Tests for standard pipeline
+│   └── test_delaunay_pipeline.py            # Tests for Delaunay pipeline
+├── epsg3857_pipeline_repair_log.md          # Repair log
+├── run_epsg3857_pipeline.py                 # Main pipeline script
+├── run_tests.sh                             # Test runner script
+└── worklog.md                               # Development worklog
 ```
 
 ## Usage
@@ -39,6 +63,9 @@ python scripts/reset_database.py --reset-derived
 
 # Run the standard EPSG:3857 pipeline
 python epsg3857_pipeline/run_epsg3857_pipeline.py --mode standard --config epsg3857_pipeline/config/crs_standardized_config.json
+
+# Run the standard pipeline with improved water edge creation
+python epsg3857_pipeline/run_epsg3857_pipeline.py --mode standard --improved-water-edges --config epsg3857_pipeline/config/crs_standardized_config_improved.json
 ```
 
 ### Running the Delaunay Triangulation Pipeline
@@ -98,6 +125,7 @@ python epsg3857_pipeline/run_epsg3857_pipeline.py --visualize --viz-mode delauna
 The pipeline is configured using JSON files in the `epsg3857_pipeline/config/` directory:
 
 - `crs_standardized_config.json`: Configuration for the standard EPSG:3857 pipeline
+- `crs_standardized_config_improved.json`: Configuration with improved water edge creation parameters
 - `delaunay_config.json`: Configuration for the Delaunay triangulation pipeline
 
 ### Example Configuration
@@ -119,11 +147,38 @@ The pipeline is configured using JSON files in the `epsg3857_pipeline/config/` d
     "river": 75,
     "stream": 30
   },
+  "terrain_grid": {
+    "grid_spacing": 200,
+    "max_edge_length": 500
+  },
   "terrain_grid_delaunay": {
     "grid_spacing": 200,
     "boundary_point_spacing": 100,
-    "simplify_tolerance": 5
-  }
+    "simplify_tolerance": 5,
+    "max_edge_length": 500
+  },
+  "water_crossing": {
+    "connectivity_check_enabled": true,
+    "max_crossing_distance": 2000,
+    "crossing_strategies": {
+      "lake": "ferry",
+      "river": "bridge",
+      "stream": "ford"
+    },
+    "speed_factors": {
+      "ferry": 0.2,
+      "bridge": 0.8,
+      "ford": 0.5,
+      "connectivity": 0.2
+    }
+  },
+  "environmental_conditions": {
+    "default_speed": 5.0,
+    "water_speed_factor": 0.2,
+    "uphill_speed_factor": 0.8,
+    "downhill_speed_factor": 1.2
+  },
+  "simplify_tolerance": 5
 }
 ```
 
@@ -211,6 +266,19 @@ python epsg3857_pipeline/run_epsg3857_pipeline.py --mode unified-delaunay --thre
 - **Missing water features**: Check the water feature extraction parameters in the configuration
 - **Path issues**: Ensure that paths in scripts are correctly specified relative to the current working directory
 - **Docker connectivity**: Make sure the Docker containers are running before executing scripts that interact with the database
+- **Graph connectivity issues**: If you encounter graph connectivity issues, use the improved water edge creation algorithm with the `--improved-water-edges` flag, which includes automatic connectivity verification and edge addition.
+
+### Graph Connectivity
+
+If you encounter issues with graph connectivity (e.g., paths cannot be found between certain points), consider:
+
+1. Using the improved water edge creation algorithm with the `--improved-water-edges` flag, which includes:
+   - Water body classification based on shape, size, and type
+   - Optimal crossing point identification for different water body types
+   - Graph connectivity verification and automatic edge addition
+2. Checking if water edges are being created (the water_edges table should not be empty)
+3. Adjusting the `max_crossing_distance` parameter in the configuration file
+4. Using the visualization tools to identify disconnected components in the graph
 
 ### Debugging
 
@@ -229,6 +297,8 @@ For more detailed documentation, see:
 - [Unified Delaunay Pipeline](../docs/unified_delaunay_pipeline.md)
 - [EPSG Consistency Summary](../docs/epsg_consistency_summary.md)
 - [Database Schema](./docs/database_schema.md) - Detailed database schema documentation
+- [Project Organization](./docs/project_organization.md) - Overview of project structure and components
+- [Water Edge Creation Proposal](./docs/water_edge_creation_proposal.md) - Detailed proposal for improved water edge creation
 - [Development Worklog](./worklog.md) - Track development progress, issues, and solutions
 - [Test Plan](./test_plan.md) - Comprehensive testing strategy and test cases
 

@@ -63,7 +63,7 @@ JOIN
     nearest_terrain_points ntp2 ON ntp1.water_obstacle_id = ntp2.water_obstacle_id
 WHERE 
     ntp1.terrain_point_id < ntp2.terrain_point_id AND
-    ST_DWithin(ntp1.terrain_point, ntp2.terrain_point, 500) AND
+    ST_DWithin(ntp1.terrain_point, ntp2.terrain_point, 1000) AND
     -- Ensure the edge intersects with the water obstacle
     EXISTS (
         SELECT 1

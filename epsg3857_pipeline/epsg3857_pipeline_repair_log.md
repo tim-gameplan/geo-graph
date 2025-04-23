@@ -128,6 +128,33 @@ Benefits of this approach:
 - More efficient movement patterns
 - More accurate cost modeling
 
+## Graph Connectivity Issues
+
+### Water Edge Creation
+
+After implementing the hexagonal terrain grid and successfully creating terrain edges, we discovered that no water edges were being created. This results in a disconnected graph where terrain on opposite sides of water obstacles cannot be traversed.
+
+#### Issue Analysis
+
+1. The current approach for creating water edges:
+   - Finds boundary points of water obstacles
+   - Finds the nearest terrain grid point for each boundary point
+   - Creates edges between pairs of terrain points that belong to the same water obstacle
+   - Filters these edges to only include those that are within a certain distance and intersect with the water obstacle
+
+2. Problems with this approach:
+   - The distance threshold (500m) was too small compared to the actual distance between terrain points (600m+)
+   - The requirement that edges must intersect water obstacles is too restrictive
+   - Large water bodies may not have terrain points that can form valid crossing edges
+
+#### Proposed Solutions
+
+1. Increase the distance threshold for finding pairs of terrain points (implemented: 1000m)
+2. Develop a more robust algorithm for creating water crossing edges
+3. Consider different approaches for different types of water bodies (rivers vs lakes)
+4. Implement a graph connectivity check to ensure the final graph is fully connected
+5. Add a post-processing step to add necessary edges where connectivity is missing
+
 ## Conclusion
 
-The EPSG:3857 pipeline has several issues that are preventing it from working correctly. By fixing the parameter naming, parameter substitution, path issues, debugging the empty tables, and improving the data model, we should be able to get the pipeline working correctly.
+The EPSG:3857 pipeline has several issues that are preventing it from working correctly. By fixing the parameter naming, parameter substitution, path issues, debugging the empty tables, improving the data model, and addressing the graph connectivity issues, we should be able to get the pipeline working correctly.
