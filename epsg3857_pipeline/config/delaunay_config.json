@@ -1,0 +1,33 @@
+{
+  "crs": {
+    "storage": 3857,
+    "export": 4326,
+    "analysis": 3857
+  },
+  "water_features": {
+    "polygon_types": ["water", "natural", "reservoir", "lake", "pond", "basin"],
+    "line_types": ["river", "stream", "canal", "drain", "ditch", "waterway"]
+  },
+  "water_buffers": {
+    "default": 50,
+    "lake": 100,
+    "river": 75,
+    "stream": 30,
+    "canal": 40,
+    "drain": 20,
+    "ditch": 10
+  },
+  "terrain_grid_delaunay": {
+    "grid_spacing": 200,
+    "boundary_point_spacing": 100,
+    "simplify_tolerance": 5,
+    "max_edge_length": 500
+  },
+  "environmental_conditions": {
+    "default_speed": 5.0,
+    "water_speed_factor": 0.2,
+    "uphill_speed_factor": 0.8,
+    "downhill_speed_factor": 1.2
+  },
+  "simplify_tolerance": 5
+}

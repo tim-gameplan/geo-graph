@@ -16,6 +16,7 @@ import logging
 import time
 from pathlib import Path
 from typing import Dict, Any, List, Optional
+import datetime # Added for timestamp
 
 import psycopg2
 from psycopg2.extras import DictCursor
@@ -26,12 +27,19 @@ from scripts.config_loader import ConfigLoader
 
 
 # Configure logging
+# Construct path relative to this script's location
+log_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'logs', 'water_obstacle'))
+# Ensure log directory exists
+os.makedirs(log_dir, exist_ok=True) 
+# Generate timestamped filename	imestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+log_filename = os.path.join(log_dir, f"{timestamp}_water_obstacle_pipeline.log")
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('water_obstacle_pipeline.log')
+        logging.FileHandler(log_filename) # Use dynamic filename
     ]
 )
 logger = logging.getLogger('water_obstacle_pipeline')

@@ -17,14 +17,21 @@ import logging
 import importlib.util
 import subprocess
 from pathlib import Path
+import datetime # Added for timestamp
 
 # Configure logging
+log_dir = "logs/unified"
+# Ensure log directory exists
+os.makedirs(log_dir, exist_ok=True) 
+# Generate timestamped filename	imestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+log_filename = os.path.join(log_dir, f"{timestamp}_unified_pipeline.log")
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('unified_pipeline.log')
+        logging.FileHandler(log_filename) # Use dynamic filename
     ]
 )
 logger = logging.getLogger('unified_pipeline')

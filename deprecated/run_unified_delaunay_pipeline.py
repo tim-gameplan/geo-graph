@@ -89,20 +89,39 @@ def execute_sql_file(conn, sql_file, params=None):
     Args:
         conn: Database connection
         sql_file: Path to the SQL file
-        params: Parameters to substitute in the SQL file
+        params: Parameters to substitute in the SQL file (using :key syntax)
     
     Returns:
         True if successful, False otherwise
     """
     logger.info(f"Executing SQL file: {sql_file}")
+    sql = ""
     try:
         with open(sql_file, 'r') as f:
             sql = f.read()
         
-        # Substitute parameters if provided
+        # Substitute parameters if provided, handling :key syntax
         if params:
-            sql = sql.format(**params)
-        
+            logger.debug(f"Substituting params: {params.keys()}")
+            for key, value in params.items():
+                placeholder = f":{key}"
+                if placeholder in sql:
+                    # Format value appropriately for SQL
+                    if isinstance(value, list):
+                        # Format as Postgres array literal string '{item1,item2,...}'
+                        formatted_value = "'{" + ",".join(map(str, value)) + "}'"
+                    elif isinstance(value, bool):
+                        formatted_value = str(value).lower() # 'true' or 'false'
+                    elif isinstance(value, (int, float)):
+                        formatted_value = str(value)
+                    elif value is None:
+                        formatted_value = 'NULL'
+                    else:
+                        # Assume string, add quotes and escape internal single quotes using triple quotes
+                        formatted_value = f"""'{str(value).replace("'", "''")}'"""
+                    logger.debug(f"Replacing {placeholder} with {formatted_value}")
+                    sql = sql.replace(placeholder, formatted_value)
+
         with conn.cursor() as cur:
             cur.execute(sql)
         
@@ -110,6 +129,8 @@ def execute_sql_file(conn, sql_file, params=None):
         return True
     except Exception as e:
         logger.error(f"Error executing SQL file {sql_file}: {e}")
+        # Log the problematic SQL for debugging
+        logger.debug(f"Failed SQL:\\n{sql}")
         conn.rollback()
         return False
 
@@ -207,6 +228,9 @@ def process_chunk(chunk, conn_string, sql_dir, config):
     
     # Connect to the database
     conn = connect_to_database(conn_string)
+    if not conn:
+        logger.error(f"Failed to connect to database for chunk {chunk_id}")
+        return {'chunk_id': chunk_id, 'status': 'failed'}
     
     try:
         # Create temporary schema for this chunk
@@ -219,41 +243,120 @@ def process_chunk(chunk, conn_string, sql_dir, config):
             cur.execute(f"SET search_path TO {chunk_id}, public")
             conn.commit()
         
-        # Extract water features for this chunk
+        # --- Prepare parameters for SQL scripts ---
         params = {
+            # Chunk extent
             'xmin': chunk['xmin'],
             'ymin': chunk['ymin'],
             'xmax': chunk['xmax'],
             'ymax': chunk['ymax'],
-            'buffer_distance': config.get('buffer_distance', 50)
         }
-        
+
+        # Extract parameters from config, providing defaults
+        wf_config = config.get('water_features', {})
+        wf_extract_config = wf_config.get('extract', {})
+        params['polygon_types'] = wf_extract_config.get('polygon_types', [])
+        params['line_types'] = wf_extract_config.get('line_types', [])
+        params['min_area_sqm'] = wf_extract_config.get('min_area_sqm', 0)
+        params['include_intermittent'] = wf_extract_config.get('include_intermittent', True)
+
+        # Buffer Sizes (used by 02)
+        bs_config = config.get('buffer_sizes', {})
+        params['buffer_default'] = bs_config.get('default', 50)
+        params['buffer_river'] = bs_config.get('river', params['buffer_default'])
+        params['buffer_stream'] = bs_config.get('stream', params['buffer_default'])
+        params['buffer_canal'] = bs_config.get('canal', params['buffer_default'])
+        params['buffer_drain'] = bs_config.get('drain', params['buffer_default'])
+        params['buffer_ditch'] = bs_config.get('ditch', params['buffer_default'])
+        params['buffer_lake'] = bs_config.get('lake', params['buffer_default'])
+        params['buffer_pond'] = bs_config.get('pond', params['buffer_default'])
+        params['buffer_reservoir'] = bs_config.get('reservoir', params['buffer_default'])
+        params['buffer_riverbank'] = bs_config.get('riverbank', params['buffer_river'])
+        params['buffer_wetland'] = bs_config.get('wetland', params['buffer_default'])
+
+        # Crossability Scores (used by 02)
+        cs_config = config.get('crossability', {})
+        params['cross_default'] = cs_config.get('default', 0.3)
+        params['cross_river'] = cs_config.get('river', params['cross_default'])
+        params['cross_stream'] = cs_config.get('stream', params['cross_default'])
+        params['cross_canal'] = cs_config.get('canal', params['cross_default'])
+        params['cross_drain'] = cs_config.get('drain', params['cross_default'])
+        params['cross_ditch'] = cs_config.get('ditch', params['cross_default'])
+        params['cross_lake'] = cs_config.get('lake', params['cross_default'])
+        params['cross_pond'] = cs_config.get('pond', params['cross_default'])
+        params['cross_reservoir'] = cs_config.get('reservoir', params['cross_default'])
+        params['cross_riverbank'] = cs_config.get('riverbank', params['cross_river'])
+        params['cross_wetland'] = cs_config.get('wetland', params['cross_default'])
+        params['cross_intermittent_multiplier'] = cs_config.get('intermittent_multiplier', 2.0)
+
+        # Width parameters (used by 02)
+        params['width_multiplier'] = config.get('width_multiplier', 1.0)
+        params['min_width'] = config.get('min_width', 1.0)
+
+        # Dissolve parameters (used by 03)
+        dissolve_config = config.get('dissolve', {})
+        params['simplify_tolerance_m'] = dissolve_config.get('simplify_tolerance_m', 5)
+        params['max_area_sqkm'] = dissolve_config.get('max_area_sqkm', 1000)
+        work_mem_str = dissolve_config.get('work_mem', '256MB')
+        try:
+            params['work_mem_mb'] = int("".join(filter(str.isdigit, work_mem_str)))
+        except ValueError:
+             params['work_mem_mb'] = 256 # Default if parsing fails
+        params['parallel_workers'] = dissolve_config.get('parallel_workers', 4)
+        params.pop('min_dissolve_area_sqm', None)
+        params.pop('max_dissolve_area_sqkm', None)
+
+        # Terrain Grid parameters (used by 04)
+        grid_config = config.get('terrain_grid', {})
+        params['cell_size_m'] = grid_config.get('cell_size_m', 200)
+        params['connection_distance_m'] = grid_config.get('connection_distance_m', 300)
+        params['grid_spacing'] = grid_config.get('grid_spacing', params['cell_size_m'])
+        params['boundary_point_spacing'] = grid_config.get('boundary_point_spacing', 100)
+
+        # Water Edge parameters (used by 06)
+        we_config = config.get('water_edges', {})
+        params['default_water_edge_cost'] = we_config.get('default_cost', 1000.0)
+
+        # Environmental parameters (used by 07)
+        env_config = config.get('environmental_conditions', {})
+        params['env_rainfall'] = env_config.get('rainfall', 0)
+        params['env_snow_depth'] = env_config.get('snow_depth', 0)
+        params['env_temperature'] = env_config.get('temperature', 20)
+        params.pop('rainfall', None)
+        params.pop('snow_depth', None)
+        params.pop('temperature', None)
+
         # Execute SQL files in sequence
         sql_files = [
             "01_extract_water_features_3857.sql",
             "02_create_water_buffers_3857.sql",
             "03_dissolve_water_buffers_3857.sql",
-            "04_create_terrain_grid_delaunay_3857.sql",
-            "05_create_terrain_edges_delaunay_3857.sql",
+            "04_create_terrain_grid_delaunay_3857.sql", # Using Delaunay version
+            "05_create_terrain_edges_delaunay_3857.sql", # Using Delaunay version
             "06_create_water_edges_3857.sql",
             "07_create_environmental_tables_3857.sql"
         ]
-        
+
         for sql_file in sql_files:
             sql_path = os.path.join(sql_dir, sql_file)
+            if not os.path.exists(sql_path):
+                logger.warning(f"SQL file not found, skipping: {sql_path}")
+                continue
             if not execute_sql_file(conn, sql_path, params):
                 logger.error(f"Failed to execute {sql_file} for chunk {chunk_id}")
+                conn.close()
                 return {'chunk_id': chunk_id, 'status': 'failed'}
-        
+
         logger.info(f"Successfully processed chunk {chunk_id}")
-        return {'chunk_id': chunk_id, 'status': 'success'}
-    
-    except Exception as e:
-        logger.error(f"Error processing chunk {chunk_id}: {e}")
-        return {'chunk_id': chunk_id, 'status': 'failed'}
-    
-    finally:
         conn.close()
+        return {'chunk_id': chunk_id, 'status': 'success'}
+
+    except Exception as e:
+        logger.exception(f"Unexpected error processing chunk {chunk_id}: {e}")
+        if conn:
+            conn.rollback()
+            conn.close()
+        return {'chunk_id': chunk_id, 'status': 'failed'}
 
 
 def merge_chunks(conn, chunks):
@@ -269,6 +372,17 @@ def merge_chunks(conn, chunks):
     """
     logger.info("Merging chunks into final tables")
     try:
+        # Ensure final tables are dropped for a clean merge
+        with conn.cursor() as cur:
+            logger.info("Dropping existing final tables if they exist...")
+            cur.execute("DROP TABLE IF EXISTS unified_edges CASCADE;")
+            cur.execute("DROP TABLE IF EXISTS terrain_triangulation CASCADE;")
+            cur.execute("DROP TABLE IF EXISTS water_edges CASCADE;")
+            cur.execute("DROP TABLE IF EXISTS terrain_edges CASCADE;")
+            cur.execute("DROP TABLE IF EXISTS terrain_grid CASCADE;")
+            conn.commit()
+            logger.info("Finished dropping tables.")
+
         # Create final tables if they don't exist
         with conn.cursor() as cur:
             cur.execute("""
@@ -316,7 +430,7 @@ def merge_chunks(conn, chunks):
         
         # Merge terrain grid points
         for chunk in chunks:
-            chunk_id = chunk['id']
+            chunk_id = chunk['chunk_id']
             if chunk['status'] == 'success':
                 with conn.cursor() as cur:
                     # Insert terrain grid points
@@ -337,7 +451,7 @@ def merge_chunks(conn, chunks):
         
         # Update terrain edge source/target IDs to reference the merged terrain grid
         for chunk in chunks:
-            chunk_id = chunk['id']
+            chunk_id = chunk['chunk_id']
             if chunk['status'] == 'success':
                 with conn.cursor() as cur:
                     # Create temporary mapping table
@@ -446,7 +560,7 @@ def cleanup_chunks(conn, chunks):
     logger.info("Cleaning up temporary chunk schemas")
     try:
         for chunk in chunks:
-            chunk_id = chunk['id']
+            chunk_id = chunk['chunk_id']
             with conn.cursor() as cur:
                 cur.execute(f"DROP SCHEMA IF EXISTS {chunk_id} CASCADE")
                 conn.commit()
@@ -505,7 +619,28 @@ def run_pipeline(config_path, sql_dir=None, conn_string=None, threads=None, chun
         
         # Create spatial chunks
         chunks = create_spatial_chunks(extent, chunk_size)
-        
+
+        # --- START: Add code to filter chunks for testing ---
+        # Define a smaller test area bounding box (e.g., Des Moines in EPSG:3857)
+        test_area_xmin = -10440000
+        test_area_ymin = 5080000
+        test_area_xmax = -10390000
+        test_area_ymax = 5130000
+
+        original_chunk_count = len(chunks)
+        chunks_to_process = [
+            c for c in chunks if (
+                c['xmax'] > test_area_xmin and
+                c['xmin'] < test_area_xmax and
+                c['ymax'] > test_area_ymin and
+                c['ymin'] < test_area_ymax
+            )
+        ]
+        # Use the filtered list for processing
+        chunks = chunks_to_process # Overwrite chunks with the filtered list
+        logger.info(f"Filtered chunks for testing. Processing {len(chunks)} chunks out of {original_chunk_count} within the test area ({test_area_xmin}, {test_area_ymin}) to ({test_area_xmax}, {test_area_ymax}).")
+        # --- END: Add code to filter chunks for testing ---
+
         # Process chunks in parallel
         logger.info(f"Processing {len(chunks)} chunks using {threads} threads")
         processed_chunks = []

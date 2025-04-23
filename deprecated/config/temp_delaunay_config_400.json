@@ -1,0 +1,142 @@
+{
+    "crs": {
+        "storage": 3857,
+        "export": 4326,
+        "visualization": 4326
+    },
+    "water_features": {
+        "extract": {
+            "water_types": ["water", "river", "riverbank", "lake", "reservoir", "pond", "stream", "canal"],
+            "natural_types": ["water", "wetland", "bay"],
+            "landuse_types": ["reservoir", "basin"],
+            "waterway_types": ["river", "stream", "canal", "drain", "ditch"]
+        },
+        "polygon_types": ["water", "riverbank", "lake", "reservoir", "pond"],
+        "line_types": ["river", "stream", "canal", "drain", "ditch"],
+        "min_area_sqm": 10000,
+        "include_intermittent": true
+    },
+    "buffer_sizes": {
+        "default": 50,
+        "river": 50,
+        "riverbank": 50,
+        "lake": 100,
+        "reservoir": 100,
+        "pond": 100,
+        "stream": 25,
+        "canal": 25,
+        "drain": 25,
+        "ditch": 25,
+        "wetland": 75
+    },
+    "crossability": {
+        "default": 0.3,
+        "river": 0.2,
+        "riverbank": 0.2,
+        "lake": 0.1,
+        "reservoir": 0.1,
+        "pond": 0.3,
+        "stream": 0.5,
+        "canal": 0.5,
+        "drain": 0.7,
+        "ditch": 0.8,
+        "wetland": 0.3,
+        "intermittent_multiplier": 2.0
+    },
+    "water_buffers": {
+        "default_buffer_m": 50,
+        "buffer_rules": [
+            {
+                "condition": "water_type = 'river' OR water_type = 'riverbank'",
+                "buffer_size_m": 50,
+                "rule_name": "river_buffer"
+            },
+            {
+                "condition": "water_type = 'lake' OR water_type = 'reservoir' OR water_type = 'pond'",
+                "buffer_size_m": 100,
+                "rule_name": "lake_buffer"
+            },
+            {
+                "condition": "water_type = 'stream' OR water_type = 'canal' OR water_type = 'drain' OR water_type = 'ditch'",
+                "buffer_size_m": 25,
+                "rule_name": "stream_buffer"
+            },
+            {
+                "condition": "water_type = 'wetland'",
+                "buffer_size_m": 75,
+                "rule_name": "wetland_buffer"
+            }
+        ]
+    },
+    "dissolve": {
+        "work_mem": "256MB",
+        "parallel_workers": 4,
+        "simplify_tolerance_m": 5,
+        "min_area_sqm": 100,
+        "max_area_sqkm": 1000
+    },
+    "terrain_grid": {
+        "cell_size_m": 400,
+        "connection_distance_m": 300,
+        "cell_size": 400,
+        "connection_distance": 300,
+        "default_cost": 1.0,
+        "slope_factor": 0.1
+    },
+    "water_edges": {
+        "default_cost": 1000.0,
+        "crossability_rules": [
+            {
+                "condition": "water_type = 'river' OR water_type = 'riverbank'",
+                "crossability": 0.2,
+                "rule_name": "river_crossability"
+            },
+            {
+                "condition": "water_type = 'lake' OR water_type = 'reservoir'",
+                "crossability": 0.1,
+                "rule_name": "lake_crossability"
+            },
+            {
+                "condition": "water_type = 'stream' OR water_type = 'canal'",
+                "crossability": 0.5,
+                "rule_name": "stream_crossability"
+            },
+            {
+                "condition": "water_type = 'wetland'",
+                "crossability": 0.3,
+                "rule_name": "wetland_crossability"
+            }
+        ]
+    },
+    "environmental_conditions": {
+        "rainfall_mm": 0,
+        "snow_depth_cm": 0,
+        "temperature_c": 20,
+        "rainfall": 0,
+        "snow_depth": 0,
+        "temperature": 20
+    },
+    "unified_edges": {
+        "work_mem": "256MB",
+        "parallel_workers": 4
+    },
+    "topology": {
+        "tolerance_m": 1.0,
+        "work_mem": "256MB",
+        "parallel_workers": 4
+    },
+    "export": {
+        "default_minutes": 60,
+        "default_crs": 4326,
+        "include_attributes": true,
+        "include_geometry": true
+    },
+    "visualization": {
+        "default_crs": 4326,
+        "default_dpi": 300,
+        "default_figsize": [12, 10],
+        "water_cmap": "Blues",
+        "terrain_cmap": "terrain",
+        "edge_cmap": "plasma"
+    }
+} 

@@ -36,13 +36,12 @@ BEGIN
     SELECT value INTO snow_depth FROM environmental_conditions WHERE condition_name = 'snow_depth';
     SELECT value INTO temperature FROM environmental_conditions WHERE condition_name = 'temperature';
     
-    -- Count original water edges
+    -- Count original water edges (optional, keep if logging is desired)
     SELECT COUNT(*) INTO original_water_edges_count FROM water_edges;
     
-    -- Create a backup of the original water edges if it doesn't exist
-    IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'water_edges_original') THEN
-        CREATE TABLE water_edges_original AS SELECT * FROM water_edges;
-    END IF;
+    -- Explicitly drop and create the original table snapshot within the function
+    DROP TABLE IF EXISTS water_edges_original;
+    CREATE TEMP TABLE water_edges_original AS SELECT * FROM water_edges; -- Use TEMP table if appropriate
     
     -- Update water edges cost based on environmental conditions
     UPDATE water_edges
@@ -113,9 +112,6 @@ SELECT
         ELSE 'Unknown'
     END AS description
 FROM environmental_conditions;
-
--- Run the update function to initialize water edge costs
-SELECT update_water_crossability();
 
 -- Show the current environmental conditions
 SELECT * FROM current_environment;

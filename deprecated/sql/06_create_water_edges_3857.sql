@@ -1,7 +1,9 @@
 -- 06_create_water_edges_3857.sql
 -- Create water edges with crossability-based costs
 -- Uses EPSG:3857 (Web Mercator) for all operations
--- No parameters required
+-- Parameters:
+-- :simplify_tolerance_m - Simplification tolerance for boundaries
+-- :boundary_point_spacing - Spacing for segmentizing boundaries
 
 -- Create water_edges table
 DROP TABLE IF EXISTS water_edges CASCADE;
@@ -30,8 +32,8 @@ simplified_boundaries AS (
         buffer_rules_applied,
         crossability_rules_applied,
         avg_buffer_size_m,
-        -- Simplify with a tolerance that preserves the overall shape (5 meters)
-        ST_SimplifyPreserveTopology(geom, 5.0) AS geom
+        -- Simplify with a tolerance that preserves the overall shape
+        ST_SimplifyPreserveTopology(geom, :simplify_tolerance_m) AS geom
     FROM water_boundaries
 ),
 -- Split long boundaries into smaller segments
@@ -43,8 +45,8 @@ segmented_boundaries AS (
         buffer_rules_applied,
         crossability_rules_applied,
         avg_buffer_size_m,
-        -- Generate points along the boundary at regular intervals (100 meters)
-        (ST_Dump(ST_Segmentize(geom, 100))).geom AS geom
+        -- Generate points along the boundary at regular intervals
+        (ST_Dump(ST_Segmentize(geom, :boundary_point_spacing))).geom AS geom
     FROM simplified_boundaries
 )
 SELECT 

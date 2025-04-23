@@ -2,7 +2,7 @@
 -- Create terrain edges from Delaunay triangulation
 -- Uses EPSG:3857 (Web Mercator) for all operations
 -- Parameters:
--- Maximum distance in meters between connected grid cells is 300 meters
+-- :connection_distance_m - Maximum distance in meters between connected grid cells
 
 -- Create terrain_edges table
 DROP TABLE IF EXISTS terrain_edges CASCADE;
@@ -61,8 +61,8 @@ edge_endpoints AS (
     SELECT 
         ve.geom,
         ve.length_m,
-        (SELECT tg.id FROM terrain_grid tg ORDER BY ST_StartPoint(ve.geom) <-> tg.geom LIMIT 1) AS source_id,
-        (SELECT tg.id FROM terrain_grid tg ORDER BY ST_EndPoint(ve.geom) <-> tg.geom LIMIT 1) AS target_id
+        (SELECT tg.id FROM terrain_grid tg WHERE ST_DWithin(ST_StartPoint(ve.geom), tg.geom, :connection_distance_m) ORDER BY ST_StartPoint(ve.geom) <-> tg.geom LIMIT 1) AS source_id,
+        (SELECT tg.id FROM terrain_grid tg WHERE ST_DWithin(ST_EndPoint(ve.geom), tg.geom, :connection_distance_m) ORDER BY ST_EndPoint(ve.geom) <-> tg.geom LIMIT 1) AS target_id
     FROM valid_edges ve
 )
 -- Create the final terrain edges table

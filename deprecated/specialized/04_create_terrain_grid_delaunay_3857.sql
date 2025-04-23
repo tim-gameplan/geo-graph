@@ -2,7 +2,8 @@
 -- Create a terrain grid using Delaunay triangulation
 -- Uses EPSG:3857 (Web Mercator) for all operations
 -- Parameters:
--- :cell_size_m - Cell size in meters for the point grid
+-- :grid_spacing - Cell size in meters for the point grid (used instead of cell_size_m)
+-- :boundary_point_spacing - Spacing for points along boundaries
 
 -- Create terrain_grid table
 DROP TABLE IF EXISTS terrain_grid CASCADE;
@@ -21,14 +22,14 @@ grid_points AS (
     SELECT 
         ST_SetSRID(
             ST_MakePoint(
-                ST_XMin(extent) + (x * 200),
-                ST_YMin(extent) + (y * 200)
+                ST_XMin(extent) + (x * :grid_spacing),
+                ST_YMin(extent) + (y * :grid_spacing)
             ),
             3857
         ) AS geom
     FROM grid_extent,
-         generate_series(0, ceil((ST_XMax(extent) - ST_XMin(extent)) / 200)::integer) AS x,
-         generate_series(0, ceil((ST_YMax(extent) - ST_YMin(extent)) / 200)::integer) AS y
+         generate_series(0, ceil((ST_XMax(extent) - ST_XMin(extent)) / :grid_spacing)::integer) AS x,
+         generate_series(0, ceil((ST_YMax(extent) - ST_YMin(extent)) / :grid_spacing)::integer) AS y
 )
 -- Filter out points that intersect with water buffers
 SELECT gp.geom
@@ -47,8 +48,8 @@ WITH boundary_points AS (
         ST_Boundary(geom) AS boundary,
         ST_NPoints(ST_Boundary(geom)) AS num_points,
         ST_Length(ST_Boundary(geom)) AS boundary_length,
-        -- Calculate step size (approximately every 100 meters)
-        GREATEST(1, ST_NPoints(ST_Boundary(geom)) / GREATEST(1, ST_Length(ST_Boundary(geom)) / 100)) AS step
+        -- Calculate step size (approximately every :boundary_point_spacing meters)
+        GREATEST(1, ST_NPoints(ST_Boundary(geom)) / GREATEST(1, ST_Length(ST_Boundary(geom)) / :boundary_point_spacing)) AS step
     FROM water_buf_dissolved
 )
 SELECT 
@@ -99,14 +100,14 @@ USING ST_SetSRID(geom, 3857);
 -- Log the results
 SELECT 
     COUNT(*) as grid_cell_count,
-    COUNT(*) * (200 * 200) / 1000000 as approx_area_sq_km
+    COUNT(*) * (:grid_spacing * :grid_spacing) / 1000000 as approx_area_sq_km
 FROM terrain_grid;
 
 -- Compare with water buffer area
 SELECT 
     'terrain_grid' AS source,
     COUNT(*) as count,
-    COUNT(*) * (200 * 200) / 1000000 as approx_area_sq_km
+    COUNT(*) * (:grid_spacing * :grid_spacing) / 1000000 as approx_area_sq_km
 FROM terrain_grid
 UNION ALL
 SELECT 
@@ -126,7 +127,7 @@ water_area AS (
     FROM water_buf_dissolved
 ),
 terrain_area AS (
-    SELECT COUNT(*) * (200 * 200) / 1000000 as area_sq_km
+    SELECT COUNT(*) * (:grid_spacing * :grid_spacing) / 1000000 as area_sq_km
     FROM terrain_grid
 )
 SELECT 

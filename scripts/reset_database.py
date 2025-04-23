@@ -160,27 +160,36 @@ def import_osm_data(container_name, osm_file, use_docker=True):
     
     print(f"Importing OSM data from {osm_file}...")
     
+    osm_file_abs = os.path.abspath(osm_file)
+    osm_filename = os.path.basename(osm_file_abs)
+    # Define path inside the container where we'll copy the file
+    container_osm_path = f"/tmp/{osm_filename}" 
+
     if use_docker:
-        # Get the absolute path of the OSM file
-        osm_file_abs = os.path.abspath(osm_file)
-        osm_dir = os.path.dirname(osm_file_abs)
-        osm_filename = os.path.basename(osm_file_abs)
-        
-        # Run osm2pgsql in a Docker container
+        # 1. Copy the OSM file into the db container
+        copy_cmd = [
+            "docker", "compose", "cp", osm_file_abs, f"db:{container_osm_path}"
+        ]
+        print(f"Copying OSM file to container: {' '.join(copy_cmd)}")
+        copy_result = run_docker_command(copy_cmd) # Use the existing helper
+        if not copy_result or copy_result.returncode != 0:
+            print(f"Error copying OSM file to container: {copy_result.stderr if copy_result else 'Unknown error'}", file=sys.stderr)
+            return False
+
+        # 2. Run osm2pgsql using docker compose exec in the db container
         cmd = [
-            "docker", "run", "--rm", "-it",
-            "--network", f"container:{container_name}",
-            "-v", f"{osm_dir}:/data",
-            "osm2pgsql/osm2pgsql:latest",
+            "docker", "compose", "exec", 
+            "-e", "PGPASSWORD=gis", # Add environment variable for password
+            "db", # Use the service name 'db'
             "osm2pgsql",
             "--create",
             "--database", "gis",
             "--username", "gis",
-            "--host", "localhost",
+            "--host", "localhost", # Still localhost from container's perspective
             "--port", "5432",
-            "--password", "gis",
+            # "--password", "gis", # Comment out as PGPASSWORD should handle it
             "--slim", "-G",
-            f"/data/{osm_filename}"
+            container_osm_path # Use the path inside the container
         ]
     else:
         # Run osm2pgsql locally
@@ -193,7 +202,7 @@ def import_osm_data(container_name, osm_file, use_docker=True):
             "-H", "localhost",
             "-P", "5432",
             # Use PGPASSWORD environment variable to avoid password prompt
-            osm_file
+            osm_file_abs # Use absolute path for local execution too
         ]
         
         # Set PGPASSWORD environment variable
@@ -205,11 +214,19 @@ def import_osm_data(container_name, osm_file, use_docker=True):
     try:
         # For interactive commands, we don't capture stdout/stderr
         if use_docker:
+            # Use subprocess.run directly for docker compose exec
             subprocess.run(cmd, check=True)
         else:
             # Use the environment with PGPASSWORD for local osm2pgsql
             subprocess.run(cmd, env=env, check=True)
         print("OSM data import complete.")
+        
+        # 3. Clean up the copied file from the container (optional but good practice)
+        if use_docker:
+            rm_cmd = ["docker", "compose", "exec", "db", "rm", "-f", container_osm_path]
+            print(f"Cleaning up container file: {' '.join(rm_cmd)}")
+            run_docker_command(rm_cmd, check=False) # Don't fail if cleanup fails
+
         return True
     except subprocess.SubprocessError as e:
         print(f"Error importing OSM data: {e}", file=sys.stderr)

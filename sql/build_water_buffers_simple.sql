@@ -22,8 +22,8 @@ BEGIN
       -- For lines
       WHEN feature_type = 'line' THEN
         CASE
-          -- Use width attribute if available
-          WHEN width IS NOT NULL THEN width::numeric + 10
+          -- Use width attribute if available, stripping units
+          WHEN width IS NOT NULL THEN regexp_replace(width, '[^0-9.]', '', 'g')::numeric + 10
           WHEN water_type = 'river' THEN 100
           WHEN water_type = 'stream' THEN 30
           WHEN water_type = 'canal' THEN 50
@@ -50,9 +50,9 @@ BEGIN
       -- For lines
       WHEN feature_type = 'line' THEN
         CASE
-          -- Use width attribute if available
+          -- Use width attribute if available, stripping units
           WHEN width IS NOT NULL THEN 
-            ST_Buffer(ST_Transform(geom, 4326)::geography, width::numeric + 10)::geometry(MultiPolygon, 4326)
+            ST_Buffer(ST_Transform(geom, 4326)::geography, regexp_replace(width, '[^0-9.]', '', 'g')::numeric + 10)::geometry(MultiPolygon, 4326)
           -- Otherwise use waterway type to estimate width
           WHEN water_type = 'river' THEN 
             ST_Buffer(ST_Transform(geom, 4326)::geography, 100)::geometry(MultiPolygon, 4326)
