@@ -43,7 +43,7 @@ EXIT_CODE=0
 # Run standard EPSG:3857 pipeline tests
 if [ "$RUN_STANDARD" = true ]; then
     echo -e "${YELLOW}Running standard EPSG:3857 pipeline tests...${NC}"
-    python tests/test_epsg3857_pipeline.py $VERBOSE
+    python epsg3857_pipeline/tests/test_epsg3857_pipeline.py $VERBOSE
     
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}Standard EPSG:3857 pipeline tests passed!${NC}"
@@ -56,7 +56,7 @@ fi
 # Run Delaunay triangulation tests
 if [ "$RUN_DELAUNAY" = true ]; then
     echo -e "${YELLOW}Running Delaunay triangulation tests...${NC}"
-    python tests/test_delaunay_pipeline.py $VERBOSE
+    python epsg3857_pipeline/tests/test_delaunay_pipeline.py $VERBOSE
     
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}Delaunay triangulation tests passed!${NC}"

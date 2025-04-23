@@ -16,7 +16,7 @@ import time
 
 # Add parent directory to path for importing config_loader_3857
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from scripts.config_loader_3857 import load_config
+from config_loader_3857 import load_config
 
 # Configure logging
 logging.basicConfig(
@@ -55,14 +55,33 @@ def run_sql_file(sql_file, params, description):
         logger.error(f"Error writing temporary SQL file: {e}")
         return False
     
-    # Run the SQL file
+    # Run the SQL file using Docker
     cmd = [
+        "docker", "exec", "geo-graph-db-1",
         "psql",
-        "-h", "localhost",
         "-U", "gis",
         "-d", "gis",
-        "-f", temp_file
+        "-f", f"/tmp/{os.path.basename(temp_file)}"
     ]
+    
+    # Copy the temp file to the container
+    copy_cmd = [
+        "docker", "cp",
+        temp_file,
+        f"geo-graph-db-1:/tmp/{os.path.basename(temp_file)}"
+    ]
+    
+    try:
+        subprocess.run(
+            copy_cmd,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error copying SQL file to container: {e.stderr}")
+        return False
     
     try:
         result = subprocess.run(

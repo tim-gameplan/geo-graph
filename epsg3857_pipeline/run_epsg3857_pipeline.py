@@ -55,16 +55,16 @@ def run_command(command, description):
 def reset_database():
     """Reset the database."""
     return run_command(
-        "python scripts/reset_database.py --reset-derived",
+        "python epsg3857_pipeline/scripts/reset_database.py --reset-derived",
         "Database reset"
     )
 
 def run_water_obstacle_pipeline(mode="standard", config=None):
     """Run the water obstacle pipeline."""
     if mode == "standard":
-        cmd = f"python scripts/run_water_obstacle_pipeline_crs.py"
+        cmd = f"python epsg3857_pipeline/scripts/run_water_obstacle_pipeline_crs.py"
     elif mode == "delaunay":
-        cmd = f"python scripts/run_water_obstacle_pipeline_delaunay.py"
+        cmd = f"python epsg3857_pipeline/scripts/run_water_obstacle_pipeline_delaunay.py"
     else:
         logger.error(f"Unknown mode: {mode}")
         return False
@@ -72,7 +72,7 @@ def run_water_obstacle_pipeline(mode="standard", config=None):
     if config:
         cmd += f" --config {config}"
     
-    cmd += f" --sql-dir sql"
+    cmd += f" --sql-dir epsg3857_pipeline/sql"
     
     return run_command(
         cmd,
@@ -81,9 +81,9 @@ def run_water_obstacle_pipeline(mode="standard", config=None):
 
 def run_unified_delaunay_pipeline(threads=4, chunk_size=5000):
     """Run the unified Delaunay pipeline."""
-    cmd = f"python scripts/run_unified_delaunay_pipeline.py"
+    cmd = f"python epsg3857_pipeline/scripts/run_unified_delaunay_pipeline.py"
     cmd += f" --threads {threads} --chunk-size {chunk_size}"
-    cmd += f" --sql-dir sql"
+    cmd += f" --sql-dir epsg3857_pipeline/sql"
     
     return run_command(
         cmd,
@@ -93,7 +93,7 @@ def run_unified_delaunay_pipeline(threads=4, chunk_size=5000):
 def export_slice(lon, lat, minutes, outfile):
     """Export a graph slice."""
     # Use our local copy of the export_slice script
-    cmd = f"python scripts/export_slice.py"
+    cmd = f"python epsg3857_pipeline/scripts/export_slice.py"
     cmd += f" --lon {lon} --lat {lat} --minutes {minutes} --outfile {outfile}"
     
     return run_command(
@@ -104,11 +104,11 @@ def export_slice(lon, lat, minutes, outfile):
 def visualize_results(mode, input_file=None):
     """Visualize the results."""
     if mode == "graphml" and input_file:
-        cmd = f"python scripts/visualize.py --mode graphml --input {input_file}"
+        cmd = f"python epsg3857_pipeline/scripts/visualize.py --mode graphml --input {input_file}"
     elif mode == "water":
-        cmd = f"python scripts/visualize.py --mode water"
+        cmd = f"python epsg3857_pipeline/scripts/visualize.py --mode water"
     elif mode == "delaunay":
-        cmd = f"python scripts/visualize_delaunay_triangulation.py"
+        cmd = f"python epsg3857_pipeline/scripts/visualize_delaunay_triangulation.py"
     else:
         logger.error(f"Unknown visualization mode: {mode}")
         return False
@@ -150,7 +150,7 @@ Examples:
     # Configuration
     parser.add_argument(
         "--config",
-        default="config/crs_standardized_config.json",
+        default="epsg3857_pipeline/config/crs_standardized_config.json",
         help="Configuration file"
     )
     

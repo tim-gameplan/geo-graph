@@ -30,9 +30,10 @@ def run_sql_query(query):
     """Run a SQL query and return the results."""
     logger.info(f"Running SQL query: {query}")
     
+    # Use docker exec to run psql inside the container
     cmd = [
+        "docker", "exec", "geo-graph-db-1",
         "psql",
-        "-h", "localhost",
         "-U", "gis",
         "-d", "gis",
         "-t",  # Tuple only, no header

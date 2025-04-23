@@ -174,12 +174,16 @@ python epsg3857_pipeline/run_epsg3857_pipeline.py --mode unified-delaunay --thre
 - **Slow performance**: Enable parallel query execution and optimize the SQL queries
 - **Simplification issues**: Adjust the simplification tolerance in the SQL script
 - **Missing water features**: Check the water feature extraction parameters in the configuration
+- **Path issues**: Ensure that paths in scripts are correctly specified relative to the current working directory
+- **Docker connectivity**: Make sure the Docker containers are running before executing scripts that interact with the database
 
 ### Debugging
 
 - Use the `--verbose` flag with the runner scripts to see more detailed output
 - Check the SQL queries in the SQL scripts to ensure they are correctly extracting and processing the data
 - Use the visualization script to visualize the results and check if they look correct
+- Check the log files (`epsg3857_pipeline.log`, `test_epsg3857_pipeline.log`, `test_delaunay_pipeline.log`) for detailed error messages
+- Run tests with the `--verbose` flag to get more detailed output about what's happening during test execution
 
 ## Documentation
 

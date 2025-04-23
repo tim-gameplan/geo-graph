@@ -14,7 +14,7 @@ This document outlines the testing strategy for the EPSG:3857 terrain graph pipe
 
 ### Prerequisites
 
-- PostgreSQL database with PostGIS extension
+- Docker with PostgreSQL/PostGIS container running
 - Python 3.8+ with required dependencies
 - OSM data subset for testing
 - Configuration files for different test scenarios
@@ -25,9 +25,18 @@ This document outlines the testing strategy for the EPSG:3857 terrain graph pipe
 # Reset the database before each test
 python scripts/reset_database.py --reset-derived
 
-# Verify database connection
-psql -h localhost -U gis -d gis -c "SELECT PostGIS_Version();"
+# Verify database connection (using Docker)
+docker exec geo-graph-db-1 psql -U gis -d gis -c "SELECT PostGIS_Version();"
 ```
+
+### Docker Integration
+
+The test scripts are designed to work with a PostgreSQL/PostGIS database running in a Docker container. This ensures a consistent test environment and makes it easier to run tests in different environments.
+
+Key aspects of the Docker integration:
+- SQL queries are executed using `docker exec` to run `psql` inside the container
+- The container name is assumed to be `geo-graph-db-1` (the default name when using docker-compose)
+- Database credentials are hardcoded in the test scripts (username: `gis`, database: `gis`)
 
 ## Test Categories
 
