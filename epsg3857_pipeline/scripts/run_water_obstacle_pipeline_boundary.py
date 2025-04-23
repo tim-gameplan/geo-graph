@@ -10,6 +10,7 @@ import sys
 import argparse
 import logging
 import subprocess
+import time
 from pathlib import Path
 
 # Add the parent directory to the path so we can import from sibling packages
@@ -28,26 +29,62 @@ logging.basicConfig(
 )
 logger = logging.getLogger('water_obstacle_pipeline_boundary')
 
-def run_sql_file(file_path, params=None):
+def run_sql_file(file_path, params=None, description=None):
     """Run a SQL file with parameters."""
-    logger.info(f"Running SQL file: {file_path}")
+    if description is None:
+        description = f"SQL file: {file_path}"
+    logger.info(f"Running {description}")
     
-    # Use docker exec to run psql inside the container
+    # Read the SQL file
+    try:
+        with open(file_path, 'r') as f:
+            sql = f.read()
+    except Exception as e:
+        logger.error(f"Error reading SQL file {file_path}: {e}")
+        return False
+    
+    # Replace parameters
+    if params:
+        for key, value in params.items():
+            placeholder = f":{key}"
+            sql = sql.replace(placeholder, str(value))
+    
+    # Write the SQL to a temporary file
+    temp_file = f"temp_{int(time.time())}.sql"
+    try:
+        with open(temp_file, 'w') as f:
+            f.write(sql)
+    except Exception as e:
+        logger.error(f"Error writing temporary SQL file: {e}")
+        return False
+    
+    # Run the SQL file using Docker
     cmd = [
         "docker", "exec", "geo-graph-db-1",
         "psql",
         "-U", "gis",
         "-d", "gis",
-        "-v", "ON_ERROR_STOP=1"
+        "-f", f"/tmp/{os.path.basename(temp_file)}"
     ]
     
-    # Add parameters
-    if params:
-        for key, value in params.items():
-            cmd.extend(["-v", f"{key}={value}"])
+    # Copy the temp file to the container
+    copy_cmd = [
+        "docker", "cp",
+        temp_file,
+        f"geo-graph-db-1:/tmp/{os.path.basename(temp_file)}"
+    ]
     
-    # Add the file
-    cmd.extend(["-f", f"/var/lib/postgresql/data/{file_path}"])
+    try:
+        subprocess.run(
+            copy_cmd,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error copying SQL file to container: {e.stderr}")
+        return False
     
     try:
         result = subprocess.run(
@@ -58,10 +95,20 @@ def run_sql_file(file_path, params=None):
             text=True
         )
         
-        logger.info(f"SQL file executed successfully")
+        logger.info(f"✅ {description} completed successfully")
+        
+        # Clean up temporary file
+        os.remove(temp_file)
+        
         return True
     except subprocess.CalledProcessError as e:
-        logger.error(f"Error executing SQL file: {e.stderr}")
+        logger.error(f"❌ {description} failed: {e}")
+        logger.error(f"Error output: {e.stderr}")
+        
+        # Clean up temporary file
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+        
         return False
 
 def run_pipeline(config_path, sql_dir):
@@ -69,28 +116,20 @@ def run_pipeline(config_path, sql_dir):
     logger.info(f"Running water obstacle pipeline with boundary approach, config: {config_path}")
     
     # Load the configuration
-    config = load_config(config_path)
+    config_loader = load_config(config_path)
+    if not config_loader:
+        logger.error("Failed to load configuration")
+        return False
     
-    # Extract parameters from the configuration
-    params = {}
+    # Get SQL parameters from the config loader
+    params = config_loader.get_sql_params()
     
-    # Add CRS parameters
-    params["source_srid"] = config["crs"]["source_srid"]
-    params["storage_srid"] = config["crs"]["storage_srid"]
-    params["output_srid"] = config["crs"]["output_srid"]
-    
-    # Add water buffer sizes
-    for feature_type, buffer_size in config["water_buffers"].items():
-        params[f"{feature_type}_buffer"] = buffer_size
-    
-    # Add terrain grid parameters
-    params["grid_spacing"] = config["terrain_grid"]["grid_spacing"]
-    params["max_edge_length"] = config["terrain_grid"]["max_edge_length"]
-    
-    # Add water edge parameters
-    params["water_speed_factor"] = config["water_edges"]["water_speed_factor"]
-    params["boundary_segment_length"] = config["water_edges"]["boundary_segment_length"]
-    params["max_connection_distance"] = config["water_edges"]["max_connection_distance"]
+    # Add water edge parameters (these are specific to the boundary approach)
+    if config_loader.config and 'water_edges' in config_loader.config:
+        water_edges = config_loader.config['water_edges']
+        params["water_speed_factor"] = water_edges.get('water_speed_factor', 0.2)
+        params["boundary_segment_length"] = water_edges.get('boundary_segment_length', 100)
+        params["max_connection_distance"] = water_edges.get('max_connection_distance', 300)
     
     # Run the SQL files
     sql_files = [

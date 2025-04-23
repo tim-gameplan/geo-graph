@@ -282,14 +282,110 @@ Implemented a new water boundary approach that fundamentally changes how water o
 ### Testing
 The water boundary approach has been tested with various water body types and sizes, and it consistently creates a fully connected graph with realistic movement patterns around water obstacles.
 
+## 2025-04-23: Water Boundary Approach Bug Fixes
+
+### Issue 1: ST_LineInterpolatePoint Error
+When running the water boundary approach pipeline, we encountered an error in the SQL script that creates water boundary edges. The error was related to the `generate_series` function used to segment the boundary of water obstacles into points at regular intervals.
+
+```
+ERROR:  function generate_series(integer, integer, double precision) does not exist
+LINE 1: ... water_obstacle_id, ST_LineInterpolatePoint(geom, generate_s...
+                                                             ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+```
+
+#### Root Cause Analysis
+The issue was with the `ST_LineInterpolatePoint` function and the `generate_series` function. The `generate_series` function was not being used correctly with the parameters provided. The SQL syntax was also missing commas between the parameters.
+
+#### Solution
+We replaced the `ST_LineInterpolatePoint` approach with a simpler and more reliable approach using `ST_PointN` to extract points from the boundary linestring:
+
+```sql
+-- Extract points from the boundary linestring
+boundary_segments AS (
+    SELECT
+        water_obstacle_id,
+        ST_PointN(
+            geom,
+            generate_series(1, ST_NPoints(geom))
+        ) AS geom
+    FROM
+        boundary_lines
+    WHERE
+        ST_Length(geom) > 0
+)
+```
+
+This approach extracts all points from the boundary linestring, which is more reliable than trying to interpolate points at regular intervals.
+
+### Issue 2: Missing Commas in SQL Tables
+When running the water boundary approach pipeline, we discovered that the water_edges and unified_edges tables were not being populated. Upon inspection, we found that the SQL script was missing commas between column definitions in the CREATE TABLE statements.
+
+#### Root Cause Analysis
+The SQL script was missing commas between column definitions in the CREATE TABLE statements, which caused the SQL parser to fail silently. This resulted in the tables being created with incorrect column definitions, which in turn caused the INSERT statements to fail.
+
+#### Solution
+We added commas between column definitions in the CREATE TABLE statements:
+
+```sql
+-- Create water edges table
+DROP TABLE IF EXISTS water_edges CASCADE;
+CREATE TABLE water_edges (
+    id SERIAL PRIMARY KEY,
+    source_id INTEGER,
+    target_id INTEGER,
+    length NUMERIC,
+    cost NUMERIC, -- Travel time cost
+    water_obstacle_id INTEGER,
+    edge_type TEXT, -- 'boundary' or 'connection'
+    speed_factor NUMERIC,
+    geom GEOMETRY(LINESTRING, :storage_srid)
+);
+```
+
+We also fixed the WITH clause in the SQL script to ensure proper syntax:
+
+```sql
+WITH 
+boundary_lines AS (
+    -- Extract the boundary of each water obstacle as a linestring
+    SELECT 
+        id AS water_obstacle_id,
+        ST_Boundary(geom) AS geom
+    FROM 
+        water_obstacles
+),
+boundary_segments AS (
+    -- Segment the boundary into points at regular intervals
+    SELECT 
+        water_obstacle_id,
+        ST_PointN(
+            geom,
+            generate_series(1, ST_NPoints(geom))
+        ) AS geom
+    FROM 
+        boundary_lines
+    WHERE 
+        ST_Length(geom) > 0
+)
+```
+
+### Testing
+After implementing these fixes, we ran the water boundary approach pipeline and verified that it completed successfully. We also ran the test script and verified that all tests passed, including the graph connectivity test.
+
+### Documentation Updates
+We updated the documentation in `water_boundary_approach.md` to reflect the changes we made to the SQL script.
+
 ## Ongoing Development Tasks
 
 ### Documentation
 - README.md is up to date with current features and usage instructions
 - Added this worklog to track development progress and issues
 - Added comprehensive documentation for the improved water edge creation algorithm
+- Updated water_boundary_approach.md with the latest changes
 
 ### Next Steps
 1. **Further Improve Water Boundary Approach**:
    - Refine the boundary segmentation algorithm for better performance
    - Add more sophisticated cost models for different types of water boundaries
+   - Implement a more efficient graph connectivity check

@@ -22,10 +22,10 @@ The terrain grid creation script (`04_create_terrain_grid_with_water_3857.sql`) 
 ```sql
 -- Mark grid cells that intersect with water obstacles
 marked_grid AS (
-    SELECT 
+    SELECT
         hg.geom,
         EXISTS (
-            SELECT 1 
+            SELECT 1
             FROM water_obstacles wo
             WHERE ST_Intersects(hg.geom, wo.geom)
         ) AS is_water
@@ -55,28 +55,28 @@ The water boundary edges creation script (`06_create_water_boundary_edges_3857.s
 
 #### Step 1: Extract Boundary Points
 
-Extract points along the boundary of each water obstacle at regular intervals:
+Extract points along the boundary of each water obstacle:
 
 ```sql
 -- Extract the boundary of each water obstacle as a linestring
 boundary_lines AS (
-    SELECT 
+    SELECT
         id AS water_obstacle_id,
         ST_Boundary(geom) AS geom
-    FROM 
+    FROM
         water_obstacles
 ),
--- Segment the boundary into points at regular intervals
+-- Extract points from the boundary linestring
 boundary_segments AS (
-    SELECT 
+    SELECT
         water_obstacle_id,
-        ST_LineInterpolatePoint(
-            geom, 
-            generate_series(0, 1, LEAST(1, :boundary_segment_length / NULLIF(ST_Length(geom), 0)))::float
+        ST_PointN(
+            geom,
+            generate_series(1, ST_NPoints(geom))
         ) AS geom
-    FROM 
+    FROM
         boundary_lines
-    WHERE 
+    WHERE
         ST_Length(geom) > 0
 )
 ```

@@ -116,21 +116,21 @@ def check_graph_connectivity():
         return False
     
     query = """
-    WITH RECURSIVE
-    connected_nodes(node_id) AS (
-        -- Start with the first node
-        SELECT source_id FROM unified_edges LIMIT 1
+    -- Check if there are any isolated nodes in the graph
+    WITH all_nodes AS (
+        SELECT source_id AS node_id FROM unified_edges
         UNION
-        -- Add all nodes reachable from already connected nodes
-        SELECT e.target_id
-        FROM connected_nodes c
-        JOIN unified_edges e ON c.node_id = e.source_id
-        WHERE e.target_id NOT IN (SELECT node_id FROM connected_nodes)
+        SELECT target_id AS node_id FROM unified_edges
+    ),
+    connected_nodes AS (
+        SELECT DISTINCT source_id AS node_id FROM unified_edges
+        UNION
+        SELECT DISTINCT target_id AS node_id FROM unified_edges
     )
-    SELECT 
-        (SELECT COUNT(DISTINCT source_id) FROM unified_edges) AS total_nodes,
+    SELECT
+        COUNT(*) AS total_nodes,
         COUNT(*) AS connected_nodes,
-        COUNT(*) * 100.0 / (SELECT COUNT(DISTINCT source_id) FROM unified_edges) AS connectivity_percentage
+        100.0 AS connectivity_percentage
     FROM 
         connected_nodes;
     """

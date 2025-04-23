@@ -36,7 +36,8 @@ CREATE TABLE water_boundary_points (
 
 -- Step 1: Extract boundary points from water obstacles
 -- We segment the boundary into points at regular intervals
-WITH boundary_lines AS (
+WITH 
+boundary_lines AS (
     -- Extract the boundary of each water obstacle as a linestring
     SELECT 
         id AS water_obstacle_id,
@@ -48,9 +49,9 @@ boundary_segments AS (
     -- Segment the boundary into points at regular intervals
     SELECT 
         water_obstacle_id,
-        ST_LineInterpolatePoint(
-            geom, 
-            generate_series(0, 1, LEAST(1, :boundary_segment_length / NULLIF(ST_Length(geom), 0)))::float
+        ST_PointN(
+            geom,
+            generate_series(1, ST_NPoints(geom))
         ) AS geom
     FROM 
         boundary_lines
