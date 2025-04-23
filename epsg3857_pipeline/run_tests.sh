@@ -13,17 +13,26 @@ NC='\033[0m' # No Color
 # Parse command line arguments
 RUN_STANDARD=true
 RUN_DELAUNAY=true
+RUN_WATER_BOUNDARY=true
 
 while [[ $# -gt 0 ]]; do
   case $1 in
     --standard-only)
       RUN_STANDARD=true
       RUN_DELAUNAY=false
+      RUN_WATER_BOUNDARY=false
       shift
       ;;
     --delaunay-only)
       RUN_STANDARD=false
       RUN_DELAUNAY=true
+      RUN_WATER_BOUNDARY=false
+      shift
+      ;;
+    --water-boundary-only)
+      RUN_STANDARD=false
+      RUN_DELAUNAY=false
+      RUN_WATER_BOUNDARY=true
       shift
       ;;
     --verbose)
@@ -62,6 +71,19 @@ if [ "$RUN_DELAUNAY" = true ]; then
         echo -e "${GREEN}Delaunay triangulation tests passed!${NC}"
     else
         echo -e "${RED}Delaunay triangulation tests failed!${NC}"
+        EXIT_CODE=1
+    fi
+fi
+
+# Run Water Boundary Approach tests
+if [ "$RUN_WATER_BOUNDARY" = true ]; then
+    echo -e "${YELLOW}Running Water Boundary Approach tests...${NC}"
+    python epsg3857_pipeline/tests/test_water_boundary_approach.py $VERBOSE
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}Water Boundary Approach tests passed!${NC}"
+    else
+        echo -e "${RED}Water Boundary Approach tests failed!${NC}"
         EXIT_CODE=1
     fi
 fi
