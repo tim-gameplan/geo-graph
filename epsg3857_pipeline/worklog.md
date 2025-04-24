@@ -288,23 +288,20 @@ The water boundary approach has been tested with various water body types and si
 The pipeline needed a reliable way to import OpenStreetMap (OSM) data into the PostGIS database. Previously, this was done manually using external tools, which was error-prone and required additional setup steps.
 
 ### Solution
-Created a new script `import_osm_data.py` that handles the entire OSM data import process:
+Created a new script `import_osm_data.py` that automates the process of importing OSM data into the PostGIS database:
 
-1. **Checks Database Extensions**: Verifies that required extensions (PostGIS, pgRouting) are installed in the database.
-2. **Installs Missing Extensions**: Automatically installs any missing extensions.
-3. **Checks Required Tools**: Verifies that required tools (osm2pgsql) are installed in the Docker container.
-4. **Installs Missing Tools**: Automatically installs any missing tools.
-5. **Imports OSM Data**: Copies the OSM file to the container and imports it using osm2pgsql.
-6. **Provides Detailed Logging**: Logs all steps and errors for easier troubleshooting.
+1. **Docker Integration**: The script uses Docker to run the necessary commands inside the PostgreSQL/PostGIS container.
+2. **Extension Installation**: The script automatically installs the required PostgreSQL extensions (postgis, hstore, postgis_topology).
+3. **OSM Data Import**: The script uses osm2pgsql to import OSM data from PBF files into the database.
+4. **Error Handling**: The script includes comprehensive error handling and logging.
+5. **Command-Line Interface**: The script provides a simple command-line interface with options for customization.
 
 ### Implementation
-1. Created a new Python script `epsg3857_pipeline/scripts/import_osm_data.py` with the following features:
-   - Command-line interface with options for OSM file, container name, database name, and username
-   - Automatic detection and installation of required extensions and tools
-   - Detailed logging and error handling
-   - Support for different OSM file formats (.osm, .osm.pbf, .osm.bz2)
-   - Cleanup of temporary files after import
-
+1. Created the `import_osm_data.py` script with the following features:
+   - Checks if the Docker container is running
+   - Installs required PostgreSQL extensions
+   - Imports OSM data using osm2pgsql
+   - Provides detailed logging and error messages
 2. Made the script executable with `chmod +x epsg3857_pipeline/scripts/import_osm_data.py`
 
 ### Benefits
@@ -314,14 +311,47 @@ Created a new script `import_osm_data.py` that handles the entire OSM data impor
 4. **Better Error Handling**: Provides detailed logging and error messages for easier troubleshooting.
 5. **Integration with Pipeline**: Can be used as part of the EPSG:3857 pipeline workflow.
 
-### Usage
-```bash
-# Import OSM data from a PBF file
-python epsg3857_pipeline/scripts/import_osm_data.py --osm-file data/subsets/iowa-latest.osm_ia-central_r10.0km.osm.pbf
+## 2025-04-24: Direct Water Obstacle Boundary Conversion
 
-# Specify a different container name
-python epsg3857_pipeline/scripts/import_osm_data.py --osm-file data/subsets/iowa-latest.osm_ia-central_r10.0km.osm.pbf --container geo-graph-db-1
+### Issue
+While the water boundary approach was a significant improvement, we needed a more direct and precise approach to create water obstacle boundaries in the graph. The previous approach still had some limitations in terms of preserving the exact shape of water obstacles and ensuring proper connectivity with the terrain grid.
 
-# Enable verbose logging
-python epsg3857_pipeline/scripts/import_osm_data.py --osm-file data/subsets/iowa-latest.osm_ia-central_r10.0km.osm.pbf --verbose
-```
+### Solution
+Implemented a direct water obstacle boundary conversion approach that directly converts water obstacle polygons to graph elements:
+
+1. **Extract Boundary Nodes**: Extract vertices directly from water obstacles as graph nodes, preserving their original order.
+2. **Create Boundary Edges**: Create edges between adjacent vertices to form the exact boundary of water obstacles.
+3. **Connect to Terrain Grid**: Connect terrain grid points to the nearest boundary nodes, ensuring proper connectivity.
+4. **Create Unified Graph**: Combine terrain edges, boundary edges, and connection edges into a unified graph.
+
+### Implementation
+1. Created a new SQL script `create_obstacle_boundary_graph.sql` that:
+   - Extracts vertices from water obstacles as graph nodes
+   - Creates edges between adjacent vertices
+   - Connects terrain grid points to boundary nodes
+   - Creates a unified graph for navigation
+
+2. Created a new Python script `run_obstacle_boundary_graph.py` to run the SQL script with:
+   - Command-line arguments for configuration parameters
+   - Logging and error handling
+
+3. Created a visualization script `visualize_obstacle_boundary_graph.py` to:
+   - Visualize the obstacle boundary graph
+   - Show the unified graph with terrain connections
+   - Provide command-line options for customization
+
+4. Updated the main pipeline script `run_epsg3857_pipeline.py` to:
+   - Add support for the obstacle-boundary visualization mode
+   - Add a --show-unified flag for visualization options
+
+### Benefits
+1. **More Natural Water Boundaries**: The water edges follow the exact shape of water obstacles.
+2. **Simpler Implementation**: The approach is more direct and easier to understand.
+3. **Better Performance**: The algorithm is more efficient, especially for large datasets.
+4. **More Accurate Representation**: The graph elements directly represent the water obstacle boundaries.
+5. **Full Graph Connectivity**: The unified graph is fully connected, ensuring that all parts of the terrain are reachable.
+6. **Realistic Navigation**: Vehicles can navigate along water boundaries and transition between terrain and water boundaries.
+7. **Optimal Pathfinding**: The unified graph enables pathfinding algorithms to find optimal paths that may involve navigating along water boundaries.
+
+### Testing
+The direct water obstacle boundary conversion approach has been tested with various water body types and sizes, and it consistently creates a fully connected graph with realistic water boundaries and proper terrain connectivity.
