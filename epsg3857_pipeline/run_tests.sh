@@ -14,6 +14,7 @@ NC='\033[0m' # No Color
 RUN_STANDARD=true
 RUN_DELAUNAY=true
 RUN_WATER_BOUNDARY=true
+RUN_OBSTACLE_BOUNDARY=true
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -21,18 +22,28 @@ while [[ $# -gt 0 ]]; do
       RUN_STANDARD=true
       RUN_DELAUNAY=false
       RUN_WATER_BOUNDARY=false
+      RUN_OBSTACLE_BOUNDARY=false
       shift
       ;;
     --delaunay-only)
       RUN_STANDARD=false
       RUN_DELAUNAY=true
       RUN_WATER_BOUNDARY=false
+      RUN_OBSTACLE_BOUNDARY=false
       shift
       ;;
     --water-boundary-only)
       RUN_STANDARD=false
       RUN_DELAUNAY=false
       RUN_WATER_BOUNDARY=true
+      RUN_OBSTACLE_BOUNDARY=false
+      shift
+      ;;
+    --obstacle-boundary-only)
+      RUN_STANDARD=false
+      RUN_DELAUNAY=false
+      RUN_WATER_BOUNDARY=false
+      RUN_OBSTACLE_BOUNDARY=true
       shift
       ;;
     --verbose)
@@ -84,6 +95,19 @@ if [ "$RUN_WATER_BOUNDARY" = true ]; then
         echo -e "${GREEN}Water Boundary Approach tests passed!${NC}"
     else
         echo -e "${RED}Water Boundary Approach tests failed!${NC}"
+        EXIT_CODE=1
+    fi
+fi
+
+# Run Direct Water Obstacle Boundary Conversion tests
+if [ "$RUN_OBSTACLE_BOUNDARY" = true ]; then
+    echo -e "${YELLOW}Running Direct Water Obstacle Boundary Conversion tests...${NC}"
+    python epsg3857_pipeline/tests/test_obstacle_boundary_graph.py $VERBOSE
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}Direct Water Obstacle Boundary Conversion tests passed!${NC}"
+    else
+        echo -e "${RED}Direct Water Obstacle Boundary Conversion tests failed!${NC}"
         EXIT_CODE=1
     fi
 fi

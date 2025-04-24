@@ -55,29 +55,17 @@ The water boundary edges creation script (`06_create_water_boundary_edges_3857.s
 
 #### Step 1: Extract Boundary Points
 
-Extract points along the boundary of each water obstacle:
+Extract points directly from the vertices of each water obstacle polygon:
 
 ```sql
--- Extract the boundary of each water obstacle as a linestring
-boundary_lines AS (
-    SELECT
+-- Extract points from the exterior ring of each polygon in their original order
+boundary_points AS (
+    SELECT 
         id AS water_obstacle_id,
-        ST_Boundary(geom) AS geom
-    FROM
+        (ST_DumpPoints(ST_ExteriorRing(geom))).path[1] AS point_order,
+        (ST_DumpPoints(ST_ExteriorRing(geom))).geom AS geom
+    FROM 
         water_obstacles
-),
--- Extract points from the boundary linestring
-boundary_segments AS (
-    SELECT
-        water_obstacle_id,
-        ST_PointN(
-            geom,
-            generate_series(1, ST_NPoints(geom))
-        ) AS geom
-    FROM
-        boundary_lines
-    WHERE
-        ST_Length(geom) > 0
 )
 ```
 
@@ -86,15 +74,24 @@ boundary_segments AS (
 Create edges between adjacent boundary points to form a continuous path along the water boundary:
 
 ```sql
--- Order boundary points along the boundary for each water obstacle
+-- Use the original point order from the polygon vertices
 ordered_boundary_points AS (
     SELECT 
-        id,
-        water_obstacle_id,
-        geom,
-        ROW_NUMBER() OVER (PARTITION BY water_obstacle_id ORDER BY id) AS point_order
+        bp.id,
+        bp.water_obstacle_id,
+        bp.geom,
+        p.point_order
     FROM 
-        water_boundary_points
+        water_boundary_points bp
+    JOIN (
+        -- Get the original point order from the polygon vertices
+        SELECT 
+            id AS water_obstacle_id,
+            (ST_DumpPoints(ST_ExteriorRing(geom))).path[1] AS point_order,
+            (ST_DumpPoints(ST_ExteriorRing(geom))).geom AS geom
+        FROM 
+            water_obstacles
+    ) p ON bp.water_obstacle_id = p.water_obstacle_id AND ST_Equals(bp.geom, p.geom)
 )
 -- Create edges between adjacent boundary points
 SELECT 
@@ -116,10 +113,10 @@ JOIN
 
 #### Step 3: Connect Terrain Points to Boundary Points
 
-Connect terrain grid points to the nearest water boundary points:
+Connect terrain grid points to the nearest water boundary points, ensuring that connections don't cross through water obstacles:
 
 ```sql
--- For each terrain point near water, find the closest water boundary point
+-- For each terrain point near water but outside water obstacles, find the closest water boundary point
 closest_connections AS (
     SELECT DISTINCT ON (tgp.id)
         tgp.id AS terrain_point_id,
@@ -133,6 +130,20 @@ closest_connections AS (
         water_boundary_points wbp
     WHERE 
         ST_DWithin(tgp.geom, wbp.geom, :max_connection_distance)
+        -- Only connect terrain points that are outside water obstacles
+        AND NOT EXISTS (
+            SELECT 1
+            FROM water_obstacles wo
+            WHERE wo.id = wbp.water_obstacle_id
+            AND ST_Contains(wo.geom, tgp.geom)
+        )
+        -- Ensure the connection line doesn't cross through the water obstacle
+        AND NOT EXISTS (
+            SELECT 1
+            FROM water_obstacles wo
+            WHERE wo.id = wbp.water_obstacle_id
+            AND ST_Crosses(ST_MakeLine(tgp.geom, wbp.geom), wo.geom)
+        )
     ORDER BY 
         tgp.id, ST_Distance(tgp.geom, wbp.geom)
 )

@@ -14,6 +14,7 @@ This pipeline addresses the coordinate reference system (CRS) inconsistency issu
 - **Hexagonal Terrain Grid**: Uses a hexagonal grid for more natural terrain representation and movement patterns
 - **Improved Water Edge Creation**: Advanced algorithms for creating water crossing edges with better graph connectivity
 - **Water Boundary Approach**: Innovative approach that treats water obstacles as navigable boundaries rather than impassable barriers
+- **Direct Water Boundary Conversion**: Approach that directly converts water obstacle polygons to graph elements for clean boundary representation
 - **Configurable Parameters**: Extensive configuration options for water features, terrain grid, and environmental conditions
 - **Comprehensive Testing**: Automated tests to verify CRS consistency and triangulation quality
 - **Visualization Tools**: Tools for visualizing the terrain graph, water obstacles, and Delaunay triangulation
@@ -31,7 +32,8 @@ epsg3857_pipeline/
 │   ├── database_schema.md                   # Database schema documentation
 │   ├── project_organization.md              # Project structure overview
 │   ├── water_edge_creation_proposal.md      # Water edge creation proposal
-│   └── water_boundary_approach.md           # Water boundary approach documentation
+│   ├── water_boundary_approach.md           # Water boundary approach documentation
+│   └── direct_water_boundary_conversion.md  # Direct water boundary conversion documentation
 ├── scripts/                # Python scripts
 │   ├── config_loader_3857.py                # Configuration loader
 │   ├── reset_database.py                    # Database reset utility
@@ -76,6 +78,12 @@ python epsg3857_pipeline/run_epsg3857_pipeline.py --mode standard --improved-wat
 
 # Run the standard pipeline with water boundary approach
 python epsg3857_pipeline/run_epsg3857_pipeline.py --mode standard --water-boundary --config epsg3857_pipeline/config/crs_standardized_config_boundary.json
+
+# Run the direct water obstacle boundary conversion
+python epsg3857_pipeline/scripts/run_obstacle_boundary_graph.py
+
+# Visualize the obstacle boundary graph
+python epsg3857_pipeline/scripts/visualize_obstacle_boundary_graph.py --output obstacle_boundary_graph.png
 ```
 
 ### Running the Delaunay Triangulation Pipeline
@@ -317,6 +325,7 @@ For more detailed documentation, see:
 - [Project Organization](./docs/project_organization.md) - Overview of project structure and components
 - [Water Edge Creation Proposal](./docs/water_edge_creation_proposal.md) - Detailed proposal for improved water edge creation
 - [Water Boundary Approach](./docs/water_boundary_approach.md) - Detailed documentation of the water boundary approach
+- [Direct Water Boundary Conversion](./docs/direct_water_boundary_conversion.md) - Documentation of the direct water boundary conversion approach
 - [Development Worklog](./worklog.md) - Track development progress, issues, and solutions
 - [Test Plan](./test_plan.md) - Comprehensive testing strategy and test cases
 
