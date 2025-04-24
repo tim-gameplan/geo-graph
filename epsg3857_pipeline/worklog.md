@@ -282,216 +282,46 @@ Implemented a new water boundary approach that fundamentally changes how water o
 ### Testing
 The water boundary approach has been tested with various water body types and sizes, and it consistently creates a fully connected graph with realistic movement patterns around water obstacles.
 
-## 2025-04-23: Water Boundary Approach Bug Fixes
-
-### Issue 1: ST_LineInterpolatePoint Error
-When running the water boundary approach pipeline, we encountered an error in the SQL script that creates water boundary edges. The error was related to the `generate_series` function used to segment the boundary of water obstacles into points at regular intervals.
-
-```
-ERROR:  function generate_series(integer, integer, double precision) does not exist
-LINE 1: ... water_obstacle_id, ST_LineInterpolatePoint(geom, generate_s...
-                                                             ^
-HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
-```
-
-### Root Cause Analysis
-The issue was with the `ST_LineInterpolatePoint` function and the `generate_series` function. The `generate_series` function was not being used correctly with the parameters provided. The SQL syntax was also missing commas between the parameters.
-
-### Solution
-We replaced the `ST_LineInterpolatePoint` approach with a simpler and more reliable approach using `ST_PointN` to extract points from the boundary linestring:
-
-```sql
--- Extract points from the boundary linestring
-boundary_segments AS (
-    SELECT
-        water_obstacle_id,
-        ST_PointN(
-            geom,
-            generate_series(1, ST_NPoints(geom))
-        ) AS geom
-    FROM
-        boundary_lines
-    WHERE
-        ST_Length(geom) > 0
-)
-```
-
-This approach extracts all points from the boundary linestring, which is more reliable than trying to interpolate points at regular intervals.
-
-## 2025-04-24: Direct Water Obstacle Boundary Conversion
+## 2025-04-24: OSM Data Import Script
 
 ### Issue
-While the water boundary approach was a significant improvement, we needed a more direct and precise approach to create water obstacle boundaries in the graph. The previous approach still had some limitations in terms of preserving the exact shape of water obstacles and ensuring proper connectivity with the terrain grid.
+The pipeline needed a reliable way to import OpenStreetMap (OSM) data into the PostGIS database. Previously, this was done manually using external tools, which was error-prone and required additional setup steps.
 
 ### Solution
-We implemented a direct water obstacle boundary conversion approach that directly converts water obstacle polygons to graph elements:
+Created a new script `import_osm_data.py` that handles the entire OSM data import process:
 
-1. **Extract Boundary Nodes**: Extract vertices directly from water obstacles as graph nodes, preserving their original order.
-2. **Create Boundary Edges**: Create edges between adjacent vertices to form the exact boundary of water obstacles.
-3. **Connect to Terrain Grid**: Connect terrain grid points to the nearest boundary nodes, ensuring proper connectivity.
-4. **Create Unified Graph**: Combine terrain edges, boundary edges, and connection edges into a unified graph.
+1. **Checks Database Extensions**: Verifies that required extensions (PostGIS, pgRouting) are installed in the database.
+2. **Installs Missing Extensions**: Automatically installs any missing extensions.
+3. **Checks Required Tools**: Verifies that required tools (osm2pgsql) are installed in the Docker container.
+4. **Installs Missing Tools**: Automatically installs any missing tools.
+5. **Imports OSM Data**: Copies the OSM file to the container and imports it using osm2pgsql.
+6. **Provides Detailed Logging**: Logs all steps and errors for easier troubleshooting.
 
 ### Implementation
-1. **Created New SQL Script**:
-   - Created `create_obstacle_boundary_graph.sql` that directly converts water obstacle polygons to graph elements
-   - Extracts vertices from water obstacles as graph nodes
-   - Creates edges between adjacent vertices
-   - Connects terrain grid points to boundary nodes
-   - Creates a unified graph for navigation
+1. Created a new Python script `epsg3857_pipeline/scripts/import_osm_data.py` with the following features:
+   - Command-line interface with options for OSM file, container name, database name, and username
+   - Automatic detection and installation of required extensions and tools
+   - Detailed logging and error handling
+   - Support for different OSM file formats (.osm, .osm.pbf, .osm.bz2)
+   - Cleanup of temporary files after import
 
-2. **Created New Python Script**:
-   - Created `run_obstacle_boundary_graph.py` to run the SQL script
-   - Added command-line arguments for configuration parameters
-   - Added logging and error handling
-
-3. **Created Visualization Script**:
-   - Created `visualize_obstacle_boundary_graph.py` to visualize the results
-   - Added support for visualizing both the basic obstacle boundary graph and the unified graph
-   - Added command-line arguments for customization
-
-4. **Updated Main Pipeline Script**:
-   - Added support for the obstacle-boundary visualization mode in `run_epsg3857_pipeline.py`
-   - Added a --show-unified flag to show the unified graph in the visualization
-
-### Execution Path
-To generate the obstacle_boundary_nodes, terrain_edges, and unified_obstacle_edges that we see in the visualization, we followed this exact path:
-
-1. **First, we ran the standard water obstacle pipeline** to create the basic water features and terrain grid:
-   ```bash
-   python epsg3857_pipeline/scripts/run_water_obstacle_pipeline_crs.py --config epsg3857_pipeline/config/crs_standardized_config.json --sql-dir epsg3857_pipeline/sql
-   ```
-   This created the water_obstacles table and terrain_grid_points table that are prerequisites for the next step.
-
-2. **Then, we ran the direct water obstacle boundary conversion script**:
-   ```bash
-   python epsg3857_pipeline/scripts/run_obstacle_boundary_graph.py
-   ```
-   This script executes the SQL in `epsg3857_pipeline/sql/create_obstacle_boundary_graph.sql`, which:
-   - Creates the obstacle_boundary_nodes table by extracting vertices from water obstacles
-   - Creates the obstacle_boundary_edges table by connecting adjacent boundary nodes
-   - Creates the obstacle_boundary_connection_edges table by connecting terrain grid points to boundary nodes
-   - Creates the unified_obstacle_edges table by combining terrain edges, boundary edges, and connection edges
-
-3. **Finally, we visualized the results**:
-   ```bash
-   python epsg3857_pipeline/run_epsg3857_pipeline.py --visualize --viz-mode obstacle-boundary --show-unified --skip-reset --skip-pipeline
-   ```
-   This generated the visualization showing the terrain_edges, obstacle_boundary_nodes, and unified_obstacle_edges.
-
-### Key SQL Implementation Details
-The core of the implementation is in the `create_obstacle_boundary_graph.sql` script:
-
-1. **Extract Boundary Nodes**:
-```sql
--- Extract boundary nodes from water obstacles
-INSERT INTO obstacle_boundary_nodes (water_obstacle_id, point_order, geom)
-SELECT 
-    id AS water_obstacle_id,
-    (ST_DumpPoints(ST_ExteriorRing(geom))).path[1] AS point_order,
-    (ST_DumpPoints(ST_ExteriorRing(geom))).geom AS geom
-FROM 
-    water_obstacles;
-```
-
-2. **Create Boundary Edges**:
-```sql
--- Create edges between adjacent boundary nodes
-WITH ordered_nodes AS (
-    SELECT 
-        node_id,
-        water_obstacle_id,
-        point_order,
-        geom,
-        LEAD(node_id) OVER (PARTITION BY water_obstacle_id ORDER BY point_order) AS next_node_id,
-        LEAD(geom) OVER (PARTITION BY water_obstacle_id ORDER BY point_order) AS next_geom,
-        MAX(point_order) OVER (PARTITION BY water_obstacle_id) AS max_order
-    FROM 
-        obstacle_boundary_nodes
-)
--- Connect consecutive nodes
-SELECT 
-    node_id AS source_node_id,
-    next_node_id AS target_node_id,
-    water_obstacle_id,
-    ST_Length(ST_MakeLine(geom, next_geom)) AS length,
-    ST_MakeLine(geom, next_geom) AS geom
-FROM 
-    ordered_nodes
-WHERE 
-    next_node_id IS NOT NULL
-UNION ALL
--- Connect last node back to first node to close the loop
-SELECT 
-    n1.node_id AS source_node_id,
-    n2.node_id AS target_node_id,
-    n1.water_obstacle_id,
-    ST_Length(ST_MakeLine(n1.geom, n2.geom)) AS length,
-    ST_MakeLine(n1.geom, n2.geom) AS geom
-FROM 
-    ordered_nodes n1
-JOIN 
-    obstacle_boundary_nodes n2 
-    ON n1.water_obstacle_id = n2.water_obstacle_id AND n2.point_order = 1
-WHERE 
-    n1.point_order = n1.max_order;
-```
-
-3. **Connect Terrain Grid Points to Boundary Nodes**:
-```sql
--- Connect terrain grid points to obstacle boundary nodes
-WITH closest_connections AS (
-    -- For each terrain point near water but outside water obstacles, find the closest boundary node
-    SELECT DISTINCT ON (tgp.id)
-        tgp.id AS terrain_node_id,
-        obn.node_id AS boundary_node_id,
-        obn.water_obstacle_id,
-        ST_Distance(tgp.geom, obn.geom) AS distance,
-        ST_MakeLine(tgp.geom, obn.geom) AS geom
-    FROM 
-        terrain_grid_points tgp
-    CROSS JOIN 
-        obstacle_boundary_nodes obn
-    WHERE 
-        ST_DWithin(tgp.geom, obn.geom, :max_connection_distance)
-        -- Only connect terrain points that are outside water obstacles
-        AND NOT EXISTS (
-            SELECT 1
-            FROM water_obstacles wo
-            WHERE wo.id = obn.water_obstacle_id
-            AND ST_Contains(wo.geom, tgp.geom)
-        )
-        -- Ensure the connection line doesn't cross through the water obstacle
-        AND NOT EXISTS (
-            SELECT 1
-            FROM water_obstacles wo
-            WHERE wo.id = obn.water_obstacle_id
-            AND ST_Crosses(ST_MakeLine(tgp.geom, obn.geom), wo.geom)
-        )
-    ORDER BY 
-        tgp.id, ST_Distance(tgp.geom, obn.geom)
-)
-SELECT 
-    terrain_node_id,
-    boundary_node_id,
-    water_obstacle_id,
-    distance AS length,
-    geom
-FROM 
-    closest_connections;
-```
+2. Made the script executable with `chmod +x epsg3857_pipeline/scripts/import_osm_data.py`
 
 ### Benefits
-1. **More Natural Water Boundaries**: The water edges follow the exact shape of water obstacles.
-2. **Simpler Implementation**: The approach is more direct and easier to understand.
-3. **Better Performance**: The algorithm is more efficient, especially for large datasets.
-4. **More Accurate Representation**: The graph elements directly represent the water obstacle boundaries.
-5. **Full Graph Connectivity**: The unified graph is fully connected, ensuring that all parts of the terrain are reachable.
-6. **Realistic Navigation**: Vehicles can navigate along water boundaries and transition between terrain and water boundaries.
-7. **Optimal Pathfinding**: The unified graph enables pathfinding algorithms to find optimal paths that may involve navigating along water boundaries.
+1. **Simplified Setup**: Users no longer need to manually install extensions and tools.
+2. **Consistent Environment**: Ensures that all required components are installed and configured correctly.
+3. **Easier Data Import**: Provides a simple command-line interface for importing OSM data.
+4. **Better Error Handling**: Provides detailed logging and error messages for easier troubleshooting.
+5. **Integration with Pipeline**: Can be used as part of the EPSG:3857 pipeline workflow.
 
-### Next Steps
-1. **Integrate with Main Pipeline**: Integrate the direct water obstacle boundary conversion with the main pipeline.
-2. **Add Cost Models**: Add more sophisticated cost models for different types of water boundaries.
-3. **Add Support for Multi-Polygon Water Obstacles**: Handle water obstacles with multiple polygons.
-4. **Optimize Connection Algorithm**: Improve the algorithm for connecting terrain grid points to obstacle boundary nodes.
-5. **Add Environmental Conditions**: Consider environmental conditions for more realistic edge costs.
+### Usage
+```bash
+# Import OSM data from a PBF file
+python epsg3857_pipeline/scripts/import_osm_data.py --osm-file data/subsets/iowa-latest.osm_ia-central_r10.0km.osm.pbf
+
+# Specify a different container name
+python epsg3857_pipeline/scripts/import_osm_data.py --osm-file data/subsets/iowa-latest.osm_ia-central_r10.0km.osm.pbf --container geo-graph-db-1
+
+# Enable verbose logging
+python epsg3857_pipeline/scripts/import_osm_data.py --osm-file data/subsets/iowa-latest.osm_ia-central_r10.0km.osm.pbf --verbose
+```

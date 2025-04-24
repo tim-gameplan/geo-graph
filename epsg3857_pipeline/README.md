@@ -64,17 +64,40 @@ epsg3857_pipeline/
 
 ## Usage
 
+### Importing OSM Data
+
+Before running the pipeline, you need to import OpenStreetMap (OSM) data into the PostGIS database. The `import_osm_data.py` script handles this process automatically:
+
+```bash
+# Import OSM data from a PBF file
+python epsg3857_pipeline/scripts/import_osm_data.py --osm-file data/subsets/iowa-latest.osm_ia-central_r10.0km.osm.pbf
+
+# Specify a different container name
+python epsg3857_pipeline/scripts/import_osm_data.py --osm-file data/subsets/iowa-latest.osm_ia-central_r10.0km.osm.pbf --container geo-graph-db-1
+
+# Enable verbose logging
+python epsg3857_pipeline/scripts/import_osm_data.py --osm-file data/subsets/iowa-latest.osm_ia-central_r10.0km.osm.pbf --verbose
+```
+
+The script performs the following tasks:
+1. Checks if required extensions (PostGIS, pgRouting) are installed in the database
+2. Installs any missing extensions
+3. Checks if required tools (osm2pgsql) are installed in the Docker container
+4. Installs any missing tools
+5. Imports the OSM data using osm2pgsql
+6. Provides detailed logging and error handling
+
 ### Running the Standard Pipeline
 
 ```bash
 # Reset the database (if needed)
 python scripts/reset_database.py --reset-derived
 
-# Run the standard EPSG:3857 pipeline
-python epsg3857_pipeline/run_epsg3857_pipeline.py --mode standard --config epsg3857_pipeline/config/crs_standardized_config.json
+# Run the standard EPSG:3857 pipeline with improved water edge creation (default)
+python epsg3857_pipeline/run_epsg3857_pipeline.py --mode standard
 
-# Run the standard pipeline with improved water edge creation
-python epsg3857_pipeline/run_epsg3857_pipeline.py --mode standard --improved-water-edges --config epsg3857_pipeline/config/crs_standardized_config_improved.json
+# Run the standard pipeline with standard water edge creation (not recommended)
+python epsg3857_pipeline/run_epsg3857_pipeline.py --mode standard --standard-water-edges --config epsg3857_pipeline/config/crs_standardized_config.json
 
 # Run the standard pipeline with water boundary approach
 python epsg3857_pipeline/run_epsg3857_pipeline.py --mode standard --water-boundary --config epsg3857_pipeline/config/crs_standardized_config_boundary.json
@@ -294,18 +317,18 @@ python epsg3857_pipeline/run_epsg3857_pipeline.py --mode unified-delaunay --thre
 
 ### Graph Connectivity
 
-If you encounter issues with graph connectivity (e.g., paths cannot be found between certain points), consider:
+The pipeline now uses the improved water edge creation algorithm by default, which ensures better graph connectivity. This algorithm includes:
+- Water body classification based on shape, size, and type
+- Optimal crossing point identification for different water body types
+- Graph connectivity verification and automatic edge addition
+
+If you still encounter issues with graph connectivity (e.g., paths cannot be found between certain points), consider:
 
 1. Using the water boundary approach with the `--water-boundary` flag, which:
    - Treats water obstacles as navigable boundaries rather than impassable barriers
    - Creates edges along the perimeter of water obstacles
    - Connects terrain grid points to water boundary points
    - Ensures full graph connectivity with a connectivity verification step
-
-2. Alternatively, using the improved water edge creation algorithm with the `--improved-water-edges` flag, which includes:
-   - Water body classification based on shape, size, and type
-   - Optimal crossing point identification for different water body types
-   - Graph connectivity verification and automatic edge addition
 
 3. Checking if water edges are being created (the water_edges table should not be empty)
 4. Adjusting the relevant parameters in the configuration file

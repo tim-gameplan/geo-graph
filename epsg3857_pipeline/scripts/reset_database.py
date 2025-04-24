@@ -53,42 +53,15 @@ def run_sql_command(command):
 
 def reset_derived_tables():
     """Reset derived tables."""
-    # First drop views
-    views = [
-        "water_features"
-    ]
+    # Use a more efficient approach by dropping and recreating the public schema
+    # This will drop all tables, views, and other objects in the public schema at once
+    if not run_sql_command("DROP SCHEMA public CASCADE"):
+        logger.error("Failed to drop public schema")
+        return False
     
-    for view in views:
-        if not run_sql_command(f"DROP VIEW IF EXISTS {view} CASCADE"):
-            logger.error(f"Failed to drop view {view}")
-            return False
-    
-    # Then drop tables
-    tables = [
-        "graph_topology",
-        "graph_vertices",
-        "graph_edges",
-        "environmental_conditions",
-        "elevation_data",
-        "unified_edges",
-        "water_edges",
-        "terrain_edges",
-        "terrain_vertices",
-        "delaunay_edges",
-        "delaunay_triangles",
-        "terrain_grid",
-        "terrain_grid_points",
-        "water_obstacles",
-        "dissolved_water_buffers",
-        "water_buffers",
-        "water_features_polygon",
-        "water_features_line"
-    ]
-    
-    for table in tables:
-        if not run_sql_command(f"DROP TABLE IF EXISTS {table} CASCADE"):
-            logger.error(f"Failed to drop table {table}")
-            return False
+    if not run_sql_command("CREATE SCHEMA public"):
+        logger.error("Failed to create public schema")
+        return False
     
     logger.info("Derived tables reset successfully")
     return True

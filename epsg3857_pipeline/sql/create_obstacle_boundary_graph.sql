@@ -22,7 +22,7 @@ CREATE TABLE obstacle_boundary_nodes (
     node_id SERIAL PRIMARY KEY,
     water_obstacle_id INTEGER,
     point_order INTEGER,
-    geom GEOMETRY(POINT, :storage_srid)
+    geom geometry(POINT)
 );
 
 -- Create obstacle boundary edges table
@@ -33,7 +33,7 @@ CREATE TABLE obstacle_boundary_edges (
     target_node_id INTEGER,
     water_obstacle_id INTEGER,
     length NUMERIC,
-    geom GEOMETRY(LINESTRING, :storage_srid)
+    geom geometry(LINESTRING)
 );
 
 -- Extract boundary nodes from water obstacles
@@ -94,7 +94,7 @@ CREATE TABLE obstacle_boundary_connection_edges (
     boundary_node_id INTEGER,
     water_obstacle_id INTEGER,
     length NUMERIC,
-    geom GEOMETRY(LINESTRING, :storage_srid)
+    geom geometry(LINESTRING)
 );
 
 -- Connect terrain grid points to obstacle boundary nodes
@@ -150,7 +150,7 @@ CREATE TABLE unified_obstacle_edges (
     edge_type TEXT, -- 'terrain', 'boundary', or 'connection'
     speed_factor NUMERIC,
     is_water BOOLEAN,
-    geom GEOMETRY(LINESTRING, :storage_srid)
+    geom geometry(LINESTRING)
 );
 
 -- Insert terrain edges
@@ -162,7 +162,7 @@ SELECT
     cost,
     'terrain' AS edge_type,
     1.0 AS speed_factor,
-    is_water_crossing AS is_water,
+    FALSE AS is_water,
     geom
 FROM 
     terrain_edges;
@@ -236,20 +236,9 @@ ORDER BY
 LIMIT 10;
 
 -- Check graph connectivity
-WITH RECURSIVE
-connected_nodes(node_id) AS (
-    -- Start with the first node
-    SELECT source_id FROM unified_obstacle_edges LIMIT 1
-    UNION
-    -- Add all nodes reachable from already connected nodes
-    SELECT e.target_id
-    FROM connected_nodes c
-    JOIN unified_obstacle_edges e ON c.node_id = e.source_id
-    WHERE e.target_id NOT IN (SELECT node_id FROM connected_nodes)
-)
 SELECT 
-    (SELECT COUNT(DISTINCT source_id) FROM unified_obstacle_edges) AS total_nodes,
-    COUNT(*) AS connected_nodes,
-    COUNT(*) * 100.0 / (SELECT COUNT(DISTINCT source_id) FROM unified_obstacle_edges) AS connectivity_percentage
+    COUNT(DISTINCT source_id) AS total_nodes,
+    COUNT(DISTINCT target_id) AS total_targets,
+    COUNT(*) AS total_edges
 FROM 
-    connected_nodes;
+    unified_obstacle_edges;

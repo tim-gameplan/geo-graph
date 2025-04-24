@@ -59,15 +59,15 @@ def reset_database():
         "Database reset"
     )
 
-def run_water_obstacle_pipeline(mode="standard", config=None, improved=False, boundary=False):
+def run_water_obstacle_pipeline(mode="standard", config=None, standard=False, boundary=False):
     """Run the water obstacle pipeline."""
     if mode == "standard":
         if boundary:
             cmd = f"python epsg3857_pipeline/scripts/run_water_obstacle_pipeline_boundary.py"
-        elif improved:
-            cmd = f"python epsg3857_pipeline/scripts/run_water_obstacle_pipeline_improved.py"
-        else:
+        elif standard:
             cmd = f"python epsg3857_pipeline/scripts/run_water_obstacle_pipeline_crs.py"
+        else:
+            cmd = f"python epsg3857_pipeline/scripts/run_water_obstacle_pipeline_improved.py"
     elif mode == "delaunay":
         cmd = f"python epsg3857_pipeline/scripts/run_water_obstacle_pipeline_delaunay.py"
     else:
@@ -82,7 +82,7 @@ def run_water_obstacle_pipeline(mode="standard", config=None, improved=False, bo
     mode_desc = f"{mode}"
     if boundary:
         mode_desc += " with water boundary approach"
-    elif improved:
+    elif not standard:
         mode_desc += " with improved water edge creation"
     return run_command(
         cmd,
@@ -98,6 +98,22 @@ def run_unified_delaunay_pipeline(threads=4, chunk_size=5000):
     return run_command(
         cmd,
         "Unified Delaunay pipeline"
+    )
+
+def import_osm_data(osm_file, container="db", db="gis", user="gis", verbose=False):
+    """Import OSM data into the database."""
+    cmd = f"python epsg3857_pipeline/scripts/import_osm_data.py"
+    cmd += f" --osm-file {osm_file}"
+    cmd += f" --container {container}"
+    cmd += f" --db {db}"
+    cmd += f" --user {user}"
+    
+    if verbose:
+        cmd += " --verbose"
+    
+    return run_command(
+        cmd,
+        "OSM data import"
     )
 
 def export_slice(lon, lat, minutes, outfile):
@@ -139,6 +155,12 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  # Import OSM data
+  python run_epsg3857_pipeline.py --import-osm --osm-file data/subsets/iowa-latest.osm_ia-central_r10.0km.osm.pbf
+  
+  # Import OSM data with custom container name
+  python run_epsg3857_pipeline.py --import-osm --osm-file data/subsets/iowa-latest.osm_ia-central_r10.0km.osm.pbf --container geo-graph-db-1
+  
   # Run the standard EPSG:3857 pipeline
   python run_epsg3857_pipeline.py
   
@@ -156,6 +178,9 @@ Examples:
   
   # Visualize the unified obstacle boundary graph
   python run_epsg3857_pipeline.py --visualize --viz-mode obstacle-boundary --show-unified
+  
+  # Complete workflow: import data, run pipeline, export slice, and visualize
+  python run_epsg3857_pipeline.py --import-osm --osm-file data/subsets/iowa-latest.osm_ia-central_r10.0km.osm.pbf --export --lon -93.63 --lat 41.99 --minutes 60 --visualize
 """
     )
     
@@ -170,9 +195,9 @@ Examples:
     # Water edge creation options
     water_edge_group = parser.add_mutually_exclusive_group()
     water_edge_group.add_argument(
-        "--improved-water-edges",
+        "--standard-water-edges",
         action="store_true",
-        help="Use improved water edge creation algorithm"
+        help="Use standard water edge creation algorithm (not recommended)"
     )
     water_edge_group.add_argument(
         "--water-boundary",
@@ -183,7 +208,7 @@ Examples:
     # Configuration
     parser.add_argument(
         "--config",
-        default="epsg3857_pipeline/config/crs_standardized_config.json",
+        default="epsg3857_pipeline/config/crs_standardized_config_improved.json",
         help="Configuration file"
     )
     
@@ -250,6 +275,37 @@ Examples:
         help="Chunk size in meters for unified Delaunay pipeline"
     )
     
+    # Import OSM data options
+    parser.add_argument(
+        "--import-osm",
+        action="store_true",
+        help="Import OSM data"
+    )
+    parser.add_argument(
+        "--osm-file",
+        help="Path to the OSM data file (.osm, .osm.pbf, .osm.bz2)"
+    )
+    parser.add_argument(
+        "--container",
+        default="db",
+        help="Name of the Docker container running PostgreSQL/PostGIS"
+    )
+    parser.add_argument(
+        "--db",
+        default="gis",
+        help="Name of the database"
+    )
+    parser.add_argument(
+        "--user",
+        default="gis",
+        help="Username for the database"
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging"
+    )
+    
     # Skip options
     parser.add_argument(
         "--skip-reset",
@@ -264,6 +320,15 @@ Examples:
     
     args = parser.parse_args()
     
+    # Import OSM data
+    if args.import_osm:
+        if not args.osm_file:
+            logger.error("--osm-file is required when using --import-osm")
+            return 1
+        if not import_osm_data(args.osm_file, args.container, args.db, args.user, args.verbose):
+            logger.error("Failed to import OSM data")
+            return 1
+    
     # Reset the database
     if not args.skip_reset:
         if not reset_database():
@@ -273,7 +338,7 @@ Examples:
     # Run the pipeline
     if not args.skip_pipeline:
         if args.mode == "standard" or args.mode == "delaunay":
-            if not run_water_obstacle_pipeline(args.mode, args.config, args.improved_water_edges, args.water_boundary):
+            if not run_water_obstacle_pipeline(args.mode, args.config, args.standard_water_edges, args.water_boundary):
                 logger.error(f"Failed to run the {args.mode} pipeline")
                 return 1
         elif args.mode == "unified-delaunay":
