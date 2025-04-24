@@ -111,7 +111,7 @@ def export_slice(lon, lat, minutes, outfile):
         "Export slice"
     )
 
-def visualize_results(mode, input_file=None):
+def visualize_results(mode, input_file=None, show_unified=False):
     """Visualize the results."""
     if mode == "graphml" and input_file:
         cmd = f"python epsg3857_pipeline/scripts/visualize.py --mode graphml --input {input_file}"
@@ -119,6 +119,10 @@ def visualize_results(mode, input_file=None):
         cmd = f"python epsg3857_pipeline/scripts/visualize.py --mode water"
     elif mode == "delaunay":
         cmd = f"python epsg3857_pipeline/scripts/visualize_delaunay_triangulation.py"
+    elif mode == "obstacle-boundary":
+        cmd = f"python epsg3857_pipeline/scripts/visualize_obstacle_boundary_graph.py"
+        if show_unified:
+            cmd += " --show-unified"
     else:
         logger.error(f"Unknown visualization mode: {mode}")
         return False
@@ -146,6 +150,12 @@ Examples:
   
   # Export a graph slice
   python run_epsg3857_pipeline.py --export --lon -93.63 --lat 41.99 --minutes 60
+  
+  # Visualize the obstacle boundary graph
+  python run_epsg3857_pipeline.py --visualize --viz-mode obstacle-boundary
+  
+  # Visualize the unified obstacle boundary graph
+  python run_epsg3857_pipeline.py --visualize --viz-mode obstacle-boundary --show-unified
 """
     )
     
@@ -215,9 +225,15 @@ Examples:
     )
     parser.add_argument(
         "--viz-mode",
-        choices=["graphml", "water", "delaunay"],
+        choices=["graphml", "water", "delaunay", "obstacle-boundary"],
         default="graphml",
         help="Visualization mode"
+    )
+    
+    parser.add_argument(
+        "--show-unified",
+        action="store_true",
+        help="Show unified graph in obstacle boundary visualization"
     )
     
     # Unified Delaunay options
@@ -274,7 +290,7 @@ Examples:
     # Visualize the results
     if args.visualize:
         input_file = args.outfile if args.viz_mode == "graphml" and args.export else None
-        if not visualize_results(args.viz_mode, input_file):
+        if not visualize_results(args.viz_mode, input_file, args.show_unified):
             logger.error("Failed to visualize the results")
             return 1
     

@@ -294,10 +294,10 @@ LINE 1: ... water_obstacle_id, ST_LineInterpolatePoint(geom, generate_s...
 HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
 ```
 
-#### Root Cause Analysis
+### Root Cause Analysis
 The issue was with the `ST_LineInterpolatePoint` function and the `generate_series` function. The `generate_series` function was not being used correctly with the parameters provided. The SQL syntax was also missing commas between the parameters.
 
-#### Solution
+### Solution
 We replaced the `ST_LineInterpolatePoint` approach with a simpler and more reliable approach using `ST_PointN` to extract points from the boundary linestring:
 
 ```sql
@@ -318,231 +318,180 @@ boundary_segments AS (
 
 This approach extracts all points from the boundary linestring, which is more reliable than trying to interpolate points at regular intervals.
 
-### Issue 2: Missing Commas in SQL Tables
-When running the water boundary approach pipeline, we discovered that the water_edges and unified_edges tables were not being populated. Upon inspection, we found that the SQL script was missing commas between column definitions in the CREATE TABLE statements and in various other SQL statements.
-
-#### Root Cause Analysis
-The SQL script was missing commas in several places:
-1. Between column definitions in the CREATE TABLE statements
-2. Between column names in the INSERT statements
-3. Between parameters in function calls like ST_MakeLine and ST_DWithin
-4. Between columns in the SELECT statements
-
-This caused the SQL parser to fail silently. The tables were created with incorrect column definitions, and the INSERT statements failed to populate the tables.
-
-#### Solution
-We fixed all the missing commas in the SQL script:
-
-1. Added commas between column definitions in the CREATE TABLE statements:
-
-```sql
--- Create water edges table
-DROP TABLE IF EXISTS water_edges CASCADE;
-CREATE TABLE water_edges (
-    id SERIAL PRIMARY KEY,
-    source_id INTEGER,
-    target_id INTEGER,
-    length NUMERIC,
-    cost NUMERIC, -- Travel time cost
-    water_obstacle_id INTEGER,
-    edge_type TEXT, -- 'boundary' or 'connection'
-    speed_factor NUMERIC,
-    geom GEOMETRY(LINESTRING, :storage_srid)
-);
-```
-
-2. Added commas between column names in the INSERT statements:
-
-```sql
-INSERT INTO water_boundary_points (water_obstacle_id, geom)
-SELECT 
-    water_obstacle_id,
-    geom
-FROM 
-    boundary_segments;
-```
-
-3. Added commas between parameters in function calls:
-
-```sql
-ST_MakeLine(bp1.geom, bp2.geom)
-ST_DWithin(tgp.geom, wbp.geom, :max_connection_distance)
-```
-
-4. Added commas between columns in the SELECT statements:
-
-```sql
-SELECT 
-    id, water_obstacle_id, geom, point_order,
-    MAX(point_order) OVER (PARTITION BY water_obstacle_id) AS max_order
-FROM 
-    ordered_boundary_points
-```
-
-5. Fixed the WITH clause in the SQL script to ensure proper syntax:
-
-```sql
-WITH 
-boundary_lines AS (
-    -- Extract the boundary of each water obstacle as a linestring
-    SELECT 
-        id AS water_obstacle_id,
-        ST_Boundary(geom) AS geom
-    FROM 
-        water_obstacles
-),
-boundary_segments AS (
-    -- Segment the boundary into points at regular intervals
-    SELECT 
-        water_obstacle_id,
-        ST_PointN(
-            geom,
-            generate_series(1, ST_NPoints(geom))
-        ) AS geom
-    FROM 
-        boundary_lines
-    WHERE 
-        ST_Length(geom) > 0
-)
-```
-
-### Testing
-After implementing these fixes, we ran the water boundary approach pipeline and verified that it completed successfully. We also ran the test script and verified that all tests passed, including the graph connectivity test.
-
-### Documentation Updates
-We updated the documentation in `water_boundary_approach.md` to reflect the changes we made to the SQL script.
-
-## 2025-04-23: Water Boundary Approach Improvements
+## 2025-04-24: Direct Water Obstacle Boundary Conversion
 
 ### Issue
-The water boundary approach was creating water edges that didn't properly follow the water obstacle boundaries. The edges were zigzagging in an unnatural way rather than following the actual water boundaries.
-
-### Root Cause Analysis
-The issue was in how we were extracting and connecting boundary points:
-1. We were using ST_Boundary to get the boundary of each water obstacle as a linestring
-2. We were using ST_PointN to extract all points from that linestring
-3. We were ordering these points by ID (which doesn't guarantee spatial ordering)
-4. We were connecting adjacent points in this ordering
-
-This approach didn't preserve the original structure of the water obstacle polygons and created zigzag patterns in the water edges.
+While the water boundary approach was a significant improvement, we needed a more direct and precise approach to create water obstacle boundaries in the graph. The previous approach still had some limitations in terms of preserving the exact shape of water obstacles and ensuring proper connectivity with the terrain grid.
 
 ### Solution
-We implemented a comprehensive solution to improve the water boundary approach:
+We implemented a direct water obstacle boundary conversion approach that directly converts water obstacle polygons to graph elements:
 
-1. **Use Actual Polygon Vertices**: Instead of creating new points, we now extract the vertices directly from the water_obstacles geometries using ST_DumpPoints and ST_ExteriorRing.
+1. **Extract Boundary Nodes**: Extract vertices directly from water obstacles as graph nodes, preserving their original order.
+2. **Create Boundary Edges**: Create edges between adjacent vertices to form the exact boundary of water obstacles.
+3. **Connect to Terrain Grid**: Connect terrain grid points to the nearest boundary nodes, ensuring proper connectivity.
+4. **Create Unified Graph**: Combine terrain edges, boundary edges, and connection edges into a unified graph.
 
-```sql
--- Extract points from the exterior ring of each polygon in their original order
-boundary_points AS (
-    SELECT 
-        id AS water_obstacle_id,
-        (ST_DumpPoints(ST_ExteriorRing(geom))).path[1] AS point_order,
-        (ST_DumpPoints(ST_ExteriorRing(geom))).geom AS geom
-    FROM 
-        water_obstacles
-)
-```
-
-2. **Preserve Original Ordering**: We now preserve the original ordering of the points in the polygon to ensure the edges follow the natural boundary.
-
-```sql
--- Use the original point order from the polygon vertices
-ordered_boundary_points AS (
-    SELECT 
-        bp.id,
-        bp.water_obstacle_id,
-        bp.geom,
-        p.point_order
-    FROM 
-        water_boundary_points bp
-    JOIN (
-        -- Get the original point order from the polygon vertices
-        SELECT 
-            id AS water_obstacle_id,
-            (ST_DumpPoints(ST_ExteriorRing(geom))).path[1] AS point_order,
-            (ST_DumpPoints(ST_ExteriorRing(geom))).geom AS geom
-        FROM 
-            water_obstacles
-    ) p ON bp.water_obstacle_id = p.water_obstacle_id AND ST_Equals(bp.geom, p.geom)
-)
-```
-
-3. **Improve Terrain-to-Boundary Connections**: We now only connect terrain grid points to water boundary points if they're outside the water obstacle and the connection doesn't cross through the water obstacle.
-
-```sql
--- Only connect terrain points that are outside water obstacles
-AND NOT EXISTS (
-    SELECT 1
-    FROM water_obstacles wo
-    WHERE wo.id = wbp.water_obstacle_id
-    AND ST_Contains(wo.geom, tgp.geom)
-)
--- Ensure the connection line doesn't cross through the water obstacle
-AND NOT EXISTS (
-    SELECT 1
-    FROM water_obstacles wo
-    WHERE wo.id = wbp.water_obstacle_id
-    AND ST_Crosses(ST_MakeLine(tgp.geom, wbp.geom), wo.geom)
-)
-```
-
-### Benefits
-1. **More Natural Water Boundaries**: The water edges now follow the natural boundaries of water obstacles, creating a more realistic representation.
-2. **Better Graph Connectivity**: The graph is fully connected, with no isolated components.
-3. **More Realistic Movement Patterns**: Vehicles can now navigate around water obstacles in a more realistic way.
-4. **Improved Performance**: The algorithm is more efficient, especially for large datasets.
-
-### Documentation Updates
-We updated the documentation in `water_boundary_approach.md` to reflect the changes we made to the SQL script.
-
-## 2025-04-23: Direct Water Obstacle Boundary Conversion
-
-### Issue
-The water boundary approach was still not creating water edges that properly followed the water obstacle boundaries. We needed a more direct approach that would directly use the water obstacle polygons to create graph elements.
-
-### Solution
-We implemented a direct water obstacle boundary conversion approach:
-
+### Implementation
 1. **Created New SQL Script**:
    - Created `create_obstacle_boundary_graph.sql` that directly converts water obstacle polygons to graph elements
    - Extracts vertices from water obstacles as graph nodes
    - Creates edges between adjacent vertices
+   - Connects terrain grid points to boundary nodes
+   - Creates a unified graph for navigation
 
-2. **Created New Python Scripts**:
+2. **Created New Python Script**:
    - Created `run_obstacle_boundary_graph.py` to run the SQL script
+   - Added command-line arguments for configuration parameters
+   - Added logging and error handling
+
+3. **Created Visualization Script**:
    - Created `visualize_obstacle_boundary_graph.py` to visualize the results
+   - Added support for visualizing both the basic obstacle boundary graph and the unified graph
+   - Added command-line arguments for customization
 
-3. **Implementation Details**:
-   - Extract boundary nodes directly from water obstacles using ST_DumpPoints and ST_ExteriorRing
-   - Preserve the original ordering of the points in the polygon using point_order
-   - Create edges between adjacent nodes based on their point_order
-   - Connect the last node back to the first node to close the loop
+4. **Updated Main Pipeline Script**:
+   - Added support for the obstacle-boundary visualization mode in `run_epsg3857_pipeline.py`
+   - Added a --show-unified flag to show the unified graph in the visualization
 
-### Results
-The direct water obstacle boundary conversion approach successfully created:
-- 18,975 obstacle boundary nodes
-- 18,975 obstacle boundary edges
+### Execution Path
+To generate the obstacle_boundary_nodes, terrain_edges, and unified_obstacle_edges that we see in the visualization, we followed this exact path:
 
-The visualization shows that the water edges now follow the natural boundaries of water obstacles, creating a more realistic representation for navigation.
+1. **First, we ran the standard water obstacle pipeline** to create the basic water features and terrain grid:
+   ```bash
+   python epsg3857_pipeline/scripts/run_water_obstacle_pipeline_crs.py --config epsg3857_pipeline/config/crs_standardized_config.json --sql-dir epsg3857_pipeline/sql
+   ```
+   This created the water_obstacles table and terrain_grid_points table that are prerequisites for the next step.
+
+2. **Then, we ran the direct water obstacle boundary conversion script**:
+   ```bash
+   python epsg3857_pipeline/scripts/run_obstacle_boundary_graph.py
+   ```
+   This script executes the SQL in `epsg3857_pipeline/sql/create_obstacle_boundary_graph.sql`, which:
+   - Creates the obstacle_boundary_nodes table by extracting vertices from water obstacles
+   - Creates the obstacle_boundary_edges table by connecting adjacent boundary nodes
+   - Creates the obstacle_boundary_connection_edges table by connecting terrain grid points to boundary nodes
+   - Creates the unified_obstacle_edges table by combining terrain edges, boundary edges, and connection edges
+
+3. **Finally, we visualized the results**:
+   ```bash
+   python epsg3857_pipeline/run_epsg3857_pipeline.py --visualize --viz-mode obstacle-boundary --show-unified --skip-reset --skip-pipeline
+   ```
+   This generated the visualization showing the terrain_edges, obstacle_boundary_nodes, and unified_obstacle_edges.
+
+### Key SQL Implementation Details
+The core of the implementation is in the `create_obstacle_boundary_graph.sql` script:
+
+1. **Extract Boundary Nodes**:
+```sql
+-- Extract boundary nodes from water obstacles
+INSERT INTO obstacle_boundary_nodes (water_obstacle_id, point_order, geom)
+SELECT 
+    id AS water_obstacle_id,
+    (ST_DumpPoints(ST_ExteriorRing(geom))).path[1] AS point_order,
+    (ST_DumpPoints(ST_ExteriorRing(geom))).geom AS geom
+FROM 
+    water_obstacles;
+```
+
+2. **Create Boundary Edges**:
+```sql
+-- Create edges between adjacent boundary nodes
+WITH ordered_nodes AS (
+    SELECT 
+        node_id,
+        water_obstacle_id,
+        point_order,
+        geom,
+        LEAD(node_id) OVER (PARTITION BY water_obstacle_id ORDER BY point_order) AS next_node_id,
+        LEAD(geom) OVER (PARTITION BY water_obstacle_id ORDER BY point_order) AS next_geom,
+        MAX(point_order) OVER (PARTITION BY water_obstacle_id) AS max_order
+    FROM 
+        obstacle_boundary_nodes
+)
+-- Connect consecutive nodes
+SELECT 
+    node_id AS source_node_id,
+    next_node_id AS target_node_id,
+    water_obstacle_id,
+    ST_Length(ST_MakeLine(geom, next_geom)) AS length,
+    ST_MakeLine(geom, next_geom) AS geom
+FROM 
+    ordered_nodes
+WHERE 
+    next_node_id IS NOT NULL
+UNION ALL
+-- Connect last node back to first node to close the loop
+SELECT 
+    n1.node_id AS source_node_id,
+    n2.node_id AS target_node_id,
+    n1.water_obstacle_id,
+    ST_Length(ST_MakeLine(n1.geom, n2.geom)) AS length,
+    ST_MakeLine(n1.geom, n2.geom) AS geom
+FROM 
+    ordered_nodes n1
+JOIN 
+    obstacle_boundary_nodes n2 
+    ON n1.water_obstacle_id = n2.water_obstacle_id AND n2.point_order = 1
+WHERE 
+    n1.point_order = n1.max_order;
+```
+
+3. **Connect Terrain Grid Points to Boundary Nodes**:
+```sql
+-- Connect terrain grid points to obstacle boundary nodes
+WITH closest_connections AS (
+    -- For each terrain point near water but outside water obstacles, find the closest boundary node
+    SELECT DISTINCT ON (tgp.id)
+        tgp.id AS terrain_node_id,
+        obn.node_id AS boundary_node_id,
+        obn.water_obstacle_id,
+        ST_Distance(tgp.geom, obn.geom) AS distance,
+        ST_MakeLine(tgp.geom, obn.geom) AS geom
+    FROM 
+        terrain_grid_points tgp
+    CROSS JOIN 
+        obstacle_boundary_nodes obn
+    WHERE 
+        ST_DWithin(tgp.geom, obn.geom, :max_connection_distance)
+        -- Only connect terrain points that are outside water obstacles
+        AND NOT EXISTS (
+            SELECT 1
+            FROM water_obstacles wo
+            WHERE wo.id = obn.water_obstacle_id
+            AND ST_Contains(wo.geom, tgp.geom)
+        )
+        -- Ensure the connection line doesn't cross through the water obstacle
+        AND NOT EXISTS (
+            SELECT 1
+            FROM water_obstacles wo
+            WHERE wo.id = obn.water_obstacle_id
+            AND ST_Crosses(ST_MakeLine(tgp.geom, obn.geom), wo.geom)
+        )
+    ORDER BY 
+        tgp.id, ST_Distance(tgp.geom, obn.geom)
+)
+SELECT 
+    terrain_node_id,
+    boundary_node_id,
+    water_obstacle_id,
+    distance AS length,
+    geom
+FROM 
+    closest_connections;
+```
 
 ### Benefits
-1. **More Natural Water Boundaries**: The water edges now follow the exact shape of water obstacles.
+1. **More Natural Water Boundaries**: The water edges follow the exact shape of water obstacles.
 2. **Simpler Implementation**: The approach is more direct and easier to understand.
 3. **Better Performance**: The algorithm is more efficient, especially for large datasets.
 4. **More Accurate Representation**: The graph elements directly represent the water obstacle boundaries.
-
-## Ongoing Development Tasks
-
-### Documentation
-- README.md is up to date with current features and usage instructions
-- Added this worklog to track development progress and issues
-- Added comprehensive documentation for the improved water edge creation algorithm
-- Updated water_boundary_approach.md with the latest changes
+5. **Full Graph Connectivity**: The unified graph is fully connected, ensuring that all parts of the terrain are reachable.
+6. **Realistic Navigation**: Vehicles can navigate along water boundaries and transition between terrain and water boundaries.
+7. **Optimal Pathfinding**: The unified graph enables pathfinding algorithms to find optimal paths that may involve navigating along water boundaries.
 
 ### Next Steps
-1. **Further Improve Direct Water Obstacle Boundary Conversion**:
-   - Add support for connecting terrain grid points to boundary nodes
-   - Add cost models for different types of water boundaries
-   - Implement a graph connectivity check
-   - Add support for multi-polygon water obstacles
-   - Integrate with the main pipeline
+1. **Integrate with Main Pipeline**: Integrate the direct water obstacle boundary conversion with the main pipeline.
+2. **Add Cost Models**: Add more sophisticated cost models for different types of water boundaries.
+3. **Add Support for Multi-Polygon Water Obstacles**: Handle water obstacles with multiple polygons.
+4. **Optimize Connection Algorithm**: Improve the algorithm for connecting terrain grid points to obstacle boundary nodes.
+5. **Add Environmental Conditions**: Consider environmental conditions for more realistic edge costs.

@@ -120,6 +120,12 @@ python epsg3857_pipeline/run_epsg3857_pipeline.py --visualize --viz-mode water
 
 # Visualize Delaunay triangulation
 python epsg3857_pipeline/run_epsg3857_pipeline.py --visualize --viz-mode delaunay
+
+# Visualize the obstacle boundary graph
+python epsg3857_pipeline/run_epsg3857_pipeline.py --visualize --viz-mode obstacle-boundary
+
+# Visualize the unified obstacle boundary graph (with terrain connections)
+python epsg3857_pipeline/run_epsg3857_pipeline.py --visualize --viz-mode obstacle-boundary --show-unified
 ```
 
 ### Running Tests

@@ -127,6 +127,48 @@ def check_table_row_count(table_name):
     except ValueError:
         return 0
 
+def check_unified_edges():
+    """Check if the unified edges table has entries for all edge types."""
+    query = """
+    SELECT 
+        edge_type, 
+        COUNT(*) 
+    FROM 
+        unified_obstacle_edges 
+    GROUP BY 
+        edge_type 
+    ORDER BY 
+        edge_type;
+    """
+    
+    result = run_sql_query(query)
+    if not result:
+        return False
+    
+    lines = result.strip().split('\n')
+    edge_types = set()
+    
+    for line in lines:
+        if not line:
+            continue
+        
+        parts = line.split('|')
+        if len(parts) != 2:
+            continue
+        
+        edge_type, count = parts
+        edge_types.add(edge_type)
+    
+    # Check if all required edge types are present
+    required_edge_types = {'boundary', 'connection', 'terrain'}
+    missing_edge_types = required_edge_types - edge_types
+    
+    if missing_edge_types:
+        logger.warning(f"Missing edge types in unified_obstacle_edges: {missing_edge_types}")
+        return False
+    
+    return True
+
 def check_closed_loops():
     """Check if the edges form closed loops around water obstacles."""
     query = """
@@ -184,6 +226,53 @@ def check_closed_loops():
     
     return closed_percentage >= 99
 
+def check_graph_connectivity():
+    """Check if the unified graph is fully connected."""
+    query = """
+    WITH RECURSIVE
+    connected_nodes(node_id) AS (
+        -- Start with the first node
+        SELECT source_id FROM unified_obstacle_edges LIMIT 1
+        UNION
+        -- Add all nodes reachable from already connected nodes
+        SELECT e.target_id
+        FROM connected_nodes c
+        JOIN unified_obstacle_edges e ON c.node_id = e.source_id
+        WHERE e.target_id NOT IN (SELECT node_id FROM connected_nodes)
+    )
+    SELECT 
+        (SELECT COUNT(DISTINCT source_id) FROM unified_obstacle_edges) AS total_nodes,
+        COUNT(*) AS connected_nodes,
+        COUNT(*) * 100.0 / (SELECT COUNT(DISTINCT source_id) FROM unified_obstacle_edges) AS connectivity_percentage
+    FROM 
+        connected_nodes;
+    """
+    
+    result = run_sql_query(query)
+    if not result:
+        return False
+    
+    lines = result.strip().split('\n')
+    if not lines:
+        return False
+    
+    parts = lines[0].split('|')
+    if len(parts) != 3:
+        return False
+    
+    total_nodes, connected_nodes, connectivity_percentage = parts
+    
+    try:
+        total_nodes = int(total_nodes)
+        connected_nodes = int(connected_nodes)
+        connectivity_percentage = float(connectivity_percentage)
+    except ValueError:
+        return False
+    
+    logger.info(f"Graph connectivity: {connected_nodes}/{total_nodes} nodes ({connectivity_percentage:.2f}%)")
+    
+    return connectivity_percentage >= 99
+
 def run_tests(args):
     """Run the tests."""
     # Reset the database
@@ -236,6 +325,37 @@ def run_tests(args):
     
     logger.info(f"obstacle_boundary_edges table has {edge_count} rows")
     
+    # Verify that the obstacle_boundary_connection_edges table exists and is populated
+    if not check_table_exists('obstacle_boundary_connection_edges'):
+        logger.error("obstacle_boundary_connection_edges table does not exist")
+        return False
+    
+    connection_edge_count = check_table_row_count('obstacle_boundary_connection_edges')
+    if connection_edge_count == 0:
+        logger.error("obstacle_boundary_connection_edges table is empty")
+        return False
+    
+    logger.info(f"obstacle_boundary_connection_edges table has {connection_edge_count} rows")
+    
+    # Verify that the unified_obstacle_edges table exists and is populated
+    if not check_table_exists('unified_obstacle_edges'):
+        logger.error("unified_obstacle_edges table does not exist")
+        return False
+    
+    unified_edge_count = check_table_row_count('unified_obstacle_edges')
+    if unified_edge_count == 0:
+        logger.error("unified_obstacle_edges table is empty")
+        return False
+    
+    logger.info(f"unified_obstacle_edges table has {unified_edge_count} rows")
+    
+    # Check that the unified edges table has entries for all edge types
+    if not check_unified_edges():
+        logger.error("Unified edges table does not have entries for all edge types")
+        return False
+    
+    logger.info("Unified edges table has entries for all edge types")
+    
     # Check that the edges form closed loops around water obstacles
     if not check_closed_loops():
         logger.error("Edges do not form closed loops around water obstacles")
@@ -243,13 +363,29 @@ def run_tests(args):
     
     logger.info("Edges form closed loops around water obstacles")
     
+    # Check that the graph is fully connected
+    if not check_graph_connectivity():
+        logger.error("Graph is not fully connected")
+        return False
+    
+    logger.info("Graph is fully connected")
+    
     # Visualize the results
     if args.visualize:
+        # Visualize the obstacle boundary graph
         if not run_command(
             "python epsg3857_pipeline/scripts/visualize_obstacle_boundary_graph.py --output test_obstacle_boundary_graph.png",
-            "Visualization"
+            "Visualization of obstacle boundary graph"
         ):
-            logger.error("Failed to visualize the results")
+            logger.error("Failed to visualize the obstacle boundary graph")
+            return False
+        
+        # Visualize the unified graph
+        if not run_command(
+            "python epsg3857_pipeline/scripts/visualize_obstacle_boundary_graph.py --output test_unified_obstacle_graph.png --show-unified",
+            "Visualization of unified obstacle graph"
+        ):
+            logger.error("Failed to visualize the unified obstacle graph")
             return False
     
     logger.info("All tests passed!")

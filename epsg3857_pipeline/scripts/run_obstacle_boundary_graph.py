@@ -5,12 +5,16 @@ Direct Water Obstacle Boundary Conversion
 This script runs the SQL script that directly converts water obstacle polygons to graph elements:
 - Extracts vertices from water obstacles as graph nodes
 - Creates edges between adjacent vertices
+- Connects terrain grid points to obstacle boundary nodes
+- Creates a unified graph for navigation
 
 Usage:
-    python run_obstacle_boundary_graph.py [--storage-srid SRID]
+    python run_obstacle_boundary_graph.py [--storage-srid SRID] [--max-connection-distance DISTANCE] [--water-speed-factor FACTOR]
 
 Options:
-    --storage-srid SRID    SRID for storage (default: 3857)
+    --storage-srid SRID                    SRID for storage (default: 3857)
+    --max-connection-distance DISTANCE     Maximum distance for connecting terrain points to boundary nodes (default: 300)
+    --water-speed-factor FACTOR            Speed factor for water edges (default: 0.2)
 """
 
 import os
@@ -100,6 +104,20 @@ def main():
     )
     
     parser.add_argument(
+        "--max-connection-distance",
+        type=int,
+        default=300,
+        help="Maximum distance for connecting terrain points to boundary nodes (default: 300)"
+    )
+    
+    parser.add_argument(
+        "--water-speed-factor",
+        type=float,
+        default=0.2,
+        help="Speed factor for water edges (default: 0.2)"
+    )
+    
+    parser.add_argument(
         "--sql-dir",
         default="epsg3857_pipeline/sql",
         help="Directory containing SQL scripts"
@@ -109,7 +127,9 @@ def main():
     
     # Set up parameters
     params = {
-        'storage_srid': args.storage_srid
+        'storage_srid': args.storage_srid,
+        'max_connection_distance': args.max_connection_distance,
+        'water_speed_factor': args.water_speed_factor
     }
     
     # Run the SQL script

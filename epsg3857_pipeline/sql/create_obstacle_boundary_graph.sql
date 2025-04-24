@@ -4,6 +4,8 @@
  * This script directly converts water obstacle polygons to graph elements:
  * - Extracts vertices from water obstacles as graph nodes
  * - Creates edges between adjacent vertices
+ * - Connects terrain grid points to obstacle boundary nodes
+ * - Creates a unified graph for navigation
  * 
  * This approach preserves the exact shape of water obstacles and creates
  * a clean representation of water boundaries for navigation.
@@ -11,6 +13,8 @@
 
 -- Parameters:
 -- :storage_srid - SRID for storage (default: 3857)
+-- :max_connection_distance - Maximum distance for connecting terrain points to boundary nodes (default: 300)
+-- :water_speed_factor - Speed factor for water edges (default: 0.2)
 
 -- Create obstacle boundary nodes table
 DROP TABLE IF EXISTS obstacle_boundary_nodes CASCADE;
@@ -82,13 +86,131 @@ JOIN
 WHERE 
     n1.point_order = n1.max_order;
 
+-- Create obstacle boundary connection edges table
+DROP TABLE IF EXISTS obstacle_boundary_connection_edges CASCADE;
+CREATE TABLE obstacle_boundary_connection_edges (
+    edge_id SERIAL PRIMARY KEY,
+    terrain_node_id INTEGER,
+    boundary_node_id INTEGER,
+    water_obstacle_id INTEGER,
+    length NUMERIC,
+    geom GEOMETRY(LINESTRING, :storage_srid)
+);
+
+-- Connect terrain grid points to obstacle boundary nodes
+INSERT INTO obstacle_boundary_connection_edges (terrain_node_id, boundary_node_id, water_obstacle_id, length, geom)
+WITH closest_connections AS (
+    -- For each terrain point near water but outside water obstacles, find the closest boundary node
+    SELECT DISTINCT ON (tgp.id)
+        tgp.id AS terrain_node_id,
+        obn.node_id AS boundary_node_id,
+        obn.water_obstacle_id,
+        ST_Distance(tgp.geom, obn.geom) AS distance,
+        ST_MakeLine(tgp.geom, obn.geom) AS geom
+    FROM 
+        terrain_grid_points tgp
+    CROSS JOIN 
+        obstacle_boundary_nodes obn
+    WHERE 
+        ST_DWithin(tgp.geom, obn.geom, :max_connection_distance)
+        -- Only connect terrain points that are outside water obstacles
+        AND NOT EXISTS (
+            SELECT 1
+            FROM water_obstacles wo
+            WHERE wo.id = obn.water_obstacle_id
+            AND ST_Contains(wo.geom, tgp.geom)
+        )
+        -- Ensure the connection line doesn't cross through the water obstacle
+        AND NOT EXISTS (
+            SELECT 1
+            FROM water_obstacles wo
+            WHERE wo.id = obn.water_obstacle_id
+            AND ST_Crosses(ST_MakeLine(tgp.geom, obn.geom), wo.geom)
+        )
+    ORDER BY 
+        tgp.id, ST_Distance(tgp.geom, obn.geom)
+)
+SELECT 
+    terrain_node_id,
+    boundary_node_id,
+    water_obstacle_id,
+    distance AS length,
+    geom
+FROM 
+    closest_connections;
+
+-- Create a unified edges table
+DROP TABLE IF EXISTS unified_obstacle_edges CASCADE;
+CREATE TABLE unified_obstacle_edges (
+    edge_id SERIAL PRIMARY KEY,
+    source_id INTEGER,
+    target_id INTEGER,
+    length NUMERIC,
+    cost NUMERIC, -- Travel time cost
+    edge_type TEXT, -- 'terrain', 'boundary', or 'connection'
+    speed_factor NUMERIC,
+    is_water BOOLEAN,
+    geom GEOMETRY(LINESTRING, :storage_srid)
+);
+
+-- Insert terrain edges
+INSERT INTO unified_obstacle_edges (source_id, target_id, length, cost, edge_type, speed_factor, is_water, geom)
+SELECT 
+    source_id,
+    target_id,
+    length,
+    cost,
+    'terrain' AS edge_type,
+    1.0 AS speed_factor,
+    is_water_crossing AS is_water,
+    geom
+FROM 
+    terrain_edges;
+
+-- Insert obstacle boundary edges
+INSERT INTO unified_obstacle_edges (source_id, target_id, length, cost, edge_type, speed_factor, is_water, geom)
+SELECT 
+    source_node_id AS source_id,
+    target_node_id AS target_id,
+    length,
+    length / (5.0 * :water_speed_factor) AS cost, -- Slower speed along water boundaries
+    'boundary' AS edge_type,
+    :water_speed_factor AS speed_factor,
+    TRUE AS is_water,
+    geom
+FROM 
+    obstacle_boundary_edges;
+
+-- Insert connection edges
+INSERT INTO unified_obstacle_edges (source_id, target_id, length, cost, edge_type, speed_factor, is_water, geom)
+SELECT 
+    terrain_node_id AS source_id,
+    boundary_node_id AS target_id,
+    length,
+    length / 5.0 AS cost, -- Normal speed for connections
+    'connection' AS edge_type,
+    1.0 AS speed_factor,
+    FALSE AS is_water,
+    geom
+FROM 
+    obstacle_boundary_connection_edges;
+
 -- Create spatial indexes
 CREATE INDEX obstacle_boundary_nodes_geom_idx ON obstacle_boundary_nodes USING GIST (geom);
 CREATE INDEX obstacle_boundary_edges_geom_idx ON obstacle_boundary_edges USING GIST (geom);
+CREATE INDEX obstacle_boundary_connection_edges_geom_idx ON obstacle_boundary_connection_edges USING GIST (geom);
+CREATE INDEX unified_obstacle_edges_geom_idx ON unified_obstacle_edges USING GIST (geom);
+CREATE INDEX unified_obstacle_edges_source_id_idx ON unified_obstacle_edges (source_id);
+CREATE INDEX unified_obstacle_edges_target_id_idx ON unified_obstacle_edges (target_id);
+CREATE INDEX unified_obstacle_edges_edge_type_idx ON unified_obstacle_edges (edge_type);
+CREATE INDEX unified_obstacle_edges_is_water_idx ON unified_obstacle_edges (is_water);
 
 -- Log the results
 SELECT 'Created ' || COUNT(*) || ' obstacle boundary nodes' FROM obstacle_boundary_nodes;
 SELECT 'Created ' || COUNT(*) || ' obstacle boundary edges' FROM obstacle_boundary_edges;
+SELECT 'Created ' || COUNT(*) || ' obstacle boundary connection edges' FROM obstacle_boundary_connection_edges;
+SELECT 'Created ' || COUNT(*) || ' unified obstacle edges' FROM unified_obstacle_edges;
+SELECT edge_type, COUNT(*) FROM unified_obstacle_edges GROUP BY edge_type ORDER BY edge_type;
 
 -- Count nodes and edges per water obstacle
 SELECT 
@@ -112,3 +234,22 @@ GROUP BY
 ORDER BY 
     edge_count DESC
 LIMIT 10;
+
+-- Check graph connectivity
+WITH RECURSIVE
+connected_nodes(node_id) AS (
+    -- Start with the first node
+    SELECT source_id FROM unified_obstacle_edges LIMIT 1
+    UNION
+    -- Add all nodes reachable from already connected nodes
+    SELECT e.target_id
+    FROM connected_nodes c
+    JOIN unified_obstacle_edges e ON c.node_id = e.source_id
+    WHERE e.target_id NOT IN (SELECT node_id FROM connected_nodes)
+)
+SELECT 
+    (SELECT COUNT(DISTINCT source_id) FROM unified_obstacle_edges) AS total_nodes,
+    COUNT(*) AS connected_nodes,
+    COUNT(*) * 100.0 / (SELECT COUNT(DISTINCT source_id) FROM unified_obstacle_edges) AS connectivity_percentage
+FROM 
+    connected_nodes;
