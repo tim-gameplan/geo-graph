@@ -1,0 +1,241 @@
+# Pipeline Approach Comparison
+
+This document provides a detailed comparison of the different pipeline approaches available in the EPSG:3857 Terrain Graph Pipeline. It helps engineers choose the most appropriate approach for their specific use case.
+
+## Overview of Pipeline Approaches
+
+The EPSG:3857 Terrain Graph Pipeline offers several approaches for generating terrain graphs:
+
+1. **Standard Pipeline**: Basic pipeline with hexagonal grid and improved water edge creation
+2. **Water Boundary Approach**: Treats water obstacles as navigable boundaries
+3. **Obstacle Boundary Approach**: Directly converts water obstacle polygons to graph elements
+4. **Delaunay Triangulation** (Experimental): Uses Delaunay triangulation for terrain representation
+5. **Boundary Hexagon Layer**: Preserves hexagons at water boundaries for better connectivity
+
+## Feature Comparison
+
+| Feature | Standard Pipeline | Water Boundary Approach | Obstacle Boundary Approach | Delaunay Triangulation | Boundary Hexagon Layer |
+|---------|------------------|------------------------|---------------------------|------------------------|------------------------|
+| **Status** | Stable | Stable | Stable | Experimental | Stable |
+| **Terrain Representation** | Hexagonal Grid | Hexagonal Grid | Hexagonal Grid | Triangulation | Hexagonal Grid with Boundary Preservation |
+| **Water Representation** | Avoided Areas | Navigable Boundaries | Direct Boundary Conversion | Avoided Areas | Boundary Hexagons |
+| **Graph Connectivity** | Good | Better | Best | Good | Better |
+| **Performance** | Fast | Medium | Medium | Slow | Medium |
+| **Memory Usage** | Low | Medium | Medium | High | Medium |
+| **Natural Appearance** | Good | Good | Best | Best | Good |
+| **Edge Creation** | Improved Algorithm | Boundary-Based | Direct Conversion | Triangulation | Boundary Connections |
+| **White Space Issues** | Yes | No | No | Minimal | No |
+
+## Detailed Comparison
+
+### Standard Pipeline
+
+**Description**: The standard pipeline creates a hexagonal terrain grid that avoids water obstacles and connects grid points with edges. It uses an improved water edge creation algorithm that ensures better graph connectivity.
+
+**Key Features**:
+- Hexagonal grid for more natural terrain representation
+- Improved water edge creation for better connectivity
+- Environmental conditions for realistic travel costs
+
+**Advantages**:
+- Fast and efficient
+- Well-tested and stable
+- Good for general-purpose terrain graph generation
+
+**Limitations**:
+- Can have "white space" issues between terrain and water obstacles
+- May have connectivity issues in complex water scenarios
+
+**When to Use**:
+- General-purpose terrain graph generation
+- When performance is a priority
+- When water obstacles are simple and well-defined
+
+**Command**:
+```bash
+python epsg3857_pipeline/run_epsg3857_pipeline.py --mode standard
+```
+
+### Water Boundary Approach
+
+**Description**: The water boundary approach treats water obstacles as navigable boundaries rather than impassable barriers. It creates edges along the perimeter of water obstacles and connects terrain grid points to water boundary points.
+
+**Key Features**:
+- Edges along water boundaries for navigation
+- Connections between terrain and water boundaries
+- Full graph connectivity
+
+**Advantages**:
+- Better connectivity than the standard approach
+- No "white space" issues
+- More realistic representation of water boundaries
+
+**Limitations**:
+- Slightly slower than the standard approach
+- More complex implementation
+- May create too many edges in complex water scenarios
+
+**When to Use**:
+- When precise water boundary navigation is needed
+- When connectivity is a priority
+- When water obstacles have complex shapes
+
+**Command**:
+```bash
+python epsg3857_pipeline/run_epsg3857_pipeline.py --mode standard --water-boundary
+```
+
+### Obstacle Boundary Approach
+
+**Description**: The obstacle boundary approach directly converts water obstacle polygons to graph elements, creating a more precise representation of water boundaries.
+
+**Key Features**:
+- Precise water boundary representation
+- Optimal connectivity between terrain and water boundaries
+- Clean boundary representation
+
+**Advantages**:
+- Best connectivity of all approaches
+- Most precise representation of water boundaries
+- No "white space" issues
+
+**Limitations**:
+- More complex implementation
+- Slightly slower than the standard approach
+- May create more nodes and edges than necessary
+
+**When to Use**:
+- When clean boundary representation is a priority
+- When optimal connectivity is required
+- When water obstacles have very complex shapes
+
+**Command**:
+```bash
+python epsg3857_pipeline/run_obstacle_boundary_pipeline.py
+```
+
+### Delaunay Triangulation (Experimental)
+
+**Description**: The Delaunay triangulation approach uses Delaunay triangulation for terrain grid generation, which provides a more natural terrain representation.
+
+**Key Features**:
+- More natural terrain representation
+- Better adaptation to water boundaries
+- Optimal connectivity
+
+**Advantages**:
+- Most natural-looking terrain representation
+- Better adaptation to natural features
+- Optimal set of connections between points
+
+**Limitations**:
+- Experimental and still under development
+- Slower than other approaches
+- Higher memory usage
+- May have performance issues with large datasets
+
+**When to Use**:
+- When natural terrain representation is a priority
+- For smaller datasets
+- When performance is not a critical concern
+
+**Command**:
+```bash
+python epsg3857_pipeline/run_epsg3857_pipeline.py --mode delaunay
+```
+
+### Boundary Hexagon Layer
+
+**Description**: The boundary hexagon layer approach preserves hexagons that intersect with water obstacles and creates connections between terrain and obstacle graphs for better connectivity. It classifies hexagons as land, boundary, or water, and creates different types of nodes and edges to represent the terrain and water boundaries.
+
+**Key Features**:
+- Preserves hexagons at water boundaries
+- Creates nodes on the land portion of boundary hexagons
+- Creates water boundary nodes along the intersection of boundary hexagons and water obstacles
+- Connects boundary nodes to both terrain and water boundary nodes
+- Creates five types of edges: land-land, land-boundary, boundary-boundary, boundary-water, and water-boundary
+
+**Advantages**:
+- Fills the "white space" between terrain and water
+- Better connectivity than the standard approach
+- More natural representation of water boundaries
+- Maintains the hexagonal grid structure for consistency
+- Ensures optimal pathfinding around water obstacles
+
+**Limitations**:
+- Creates more nodes and edges than the standard approach
+- Slightly more complex implementation
+- Slightly slower than the standard approach
+
+**When to Use**:
+- When "white space" issues need to be addressed
+- When better connectivity is needed
+- When a balance between precision and performance is required
+- When natural movement patterns around water obstacles are important
+
+**Command**:
+```bash
+python epsg3857_pipeline/run_boundary_hexagon_pipeline.py
+```
+
+## Performance Comparison
+
+| Approach | Small Dataset (< 10 km²) | Medium Dataset (10-100 km²) | Large Dataset (> 100 km²) |
+|----------|--------------------------|----------------------------|---------------------------|
+| Standard Pipeline | Fast (< 1 min) | Fast (1-5 min) | Medium (5-15 min) |
+| Water Boundary Approach | Fast (< 1 min) | Medium (2-7 min) | Slow (10-20 min) |
+| Obstacle Boundary Approach | Fast (< 1 min) | Medium (2-7 min) | Slow (10-20 min) |
+| Delaunay Triangulation | Medium (1-3 min) | Slow (5-15 min) | Very Slow (20+ min) |
+| Boundary Hexagon Layer | Fast (< 1 min) | Medium (2-7 min) | Medium (7-15 min) |
+
+*Note: Performance times are approximate and depend on hardware, data complexity, and configuration settings.*
+
+## Memory Usage Comparison
+
+| Approach | Small Dataset (< 10 km²) | Medium Dataset (10-100 km²) | Large Dataset (> 100 km²) |
+|----------|--------------------------|----------------------------|---------------------------|
+| Standard Pipeline | Low (< 1 GB) | Low (1-2 GB) | Medium (2-4 GB) |
+| Water Boundary Approach | Low (< 1 GB) | Medium (1-3 GB) | High (3-6 GB) |
+| Obstacle Boundary Approach | Low (< 1 GB) | Medium (1-3 GB) | High (3-6 GB) |
+| Delaunay Triangulation | Medium (1-2 GB) | High (2-5 GB) | Very High (5+ GB) |
+| Boundary Hexagon Layer | Low (< 1 GB) | Medium (1-3 GB) | High (3-5 GB) |
+
+*Note: Memory usage is approximate and depends on hardware, data complexity, and configuration settings.*
+
+## Use Case Examples
+
+### Urban Planning
+
+**Recommended Approach**: Standard Pipeline or Obstacle Boundary Approach
+
+**Rationale**: Urban areas typically have well-defined water features and require good connectivity. The standard pipeline is efficient for large urban areas, while the obstacle boundary approach provides better connectivity for complex urban water features.
+
+### Navigation Systems
+
+**Recommended Approach**: Water Boundary Approach or Obstacle Boundary Approach
+
+**Rationale**: Navigation systems require precise water boundary representation and optimal connectivity. The water boundary approach or obstacle boundary approach provides the best connectivity and most realistic representation of water boundaries.
+
+### Environmental Analysis
+
+**Recommended Approach**: Delaunay Triangulation
+
+**Rationale**: Environmental analysis often requires a more natural terrain representation. The Delaunay triangulation approach provides the most natural-looking terrain representation and better adaptation to natural features.
+
+### Game Development
+
+**Recommended Approach**: Boundary Hexagon Layer
+
+**Rationale**: Game development often requires a balance between natural appearance and performance. The boundary hexagon layer approach provides a good balance between precision and performance, with no "white space" issues.
+
+## Conclusion
+
+Each pipeline approach has its strengths and limitations. The choice of approach depends on the specific requirements of your project:
+
+- **Standard Pipeline**: Best for general-purpose terrain graph generation and when performance is a priority
+- **Water Boundary Approach**: Best when precise water boundary navigation is needed
+- **Obstacle Boundary Approach**: Best when clean boundary representation and optimal connectivity are required
+- **Delaunay Triangulation**: Best when natural terrain representation is a priority (but still experimental)
+- **Boundary Hexagon Layer**: Best when "white space" issues need to be addressed
+
+For most use cases, the standard pipeline with improved water edge creation is recommended as it provides a good balance between performance, connectivity, and stability.

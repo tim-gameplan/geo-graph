@@ -1,0 +1,44 @@
+{
+  "crs": {
+    "storage": 3857,
+    "export": 4326,
+    "analysis": 3857
+  },
+  "water_features": {
+    "polygon_types": ["water", "natural", "reservoir"],
+    "line_types": ["river", "stream", "canal", "drain", "ditch"]
+  },
+  "water_buffers": {
+    "default": 50,
+    "lake": 100,
+    "river": 75,
+    "stream": 30
+  },
+  "terrain_grid": {
+    "grid_spacing": 200,
+    "max_edge_length": 500
+  },
+  "water_crossing": {
+    "max_crossing_distance": 1000,
+    "speed_factors": {
+      "ferry": 0.2,
+      "bridge": 0.8,
+      "ford": 0.5,
+      "connectivity": 0.2
+    }
+  },
+  "obstacle_boundary": {
+    "boundary_node_spacing": 100,
+    "boundary_edge_max_length": 200,
+    "connection_distance": 1000,
+    "max_connections_per_boundary_node": 5,
+    "max_connections_per_terrain_point": 2
+  },
+  "environmental_conditions": {
+    "default_speed": 5.0,
+    "water_speed_factor": 0.2,
+    "uphill_speed_factor": 0.8,
+    "downhill_speed_factor": 1.2
+  },
+  "simplify_tolerance": 5
+}

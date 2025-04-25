@@ -45,9 +45,12 @@ epsg3857_pipeline/
 │       ├── visualize.py                         # Visualization utility
 │       └── test.py                              # Test script
 ├── docs/                   # Documentation
+│   ├── component_status.md                  # Status of each component
 │   ├── database_schema.md                   # Database schema documentation
 │   ├── direct_water_boundary_conversion.md  # Direct water boundary conversion documentation
+│   ├── getting_started.md                   # Getting started guide
 │   ├── obstacle_boundary_pipeline.md        # Obstacle boundary pipeline documentation
+│   ├── pipeline_comparison.md               # Comparison of pipeline approaches
 │   ├── project_organization.md              # This document
 │   ├── water_boundary_approach.md           # Water boundary approach documentation
 │   └── water_edge_creation_proposal.md      # Water edge creation proposal
@@ -75,6 +78,27 @@ epsg3857_pipeline/
 ├── test_plan.md                             # Comprehensive test plan
 └── worklog.md                               # Development worklog
 ```
+
+## Documentation Structure
+
+The documentation is organized to help new engineers quickly understand the project and get started:
+
+1. **README.md**: Main project documentation with an overview, key features, and usage examples
+2. **Getting Started Guide** (`docs/getting_started.md`): Step-by-step guide for new engineers
+3. **Component Status** (`docs/component_status.md`): Status of each component (stable, experimental, deprecated)
+4. **Pipeline Comparison** (`docs/pipeline_comparison.md`): Detailed comparison of different pipeline approaches
+5. **Project Organization** (`docs/project_organization.md`): This document, explaining the project structure
+6. **Database Schema** (`docs/database_schema.md`): Detailed database schema documentation
+7. **Approach-Specific Documentation**:
+   - `docs/water_edge_creation_proposal.md`: Proposal for improved water edge creation
+   - `docs/water_boundary_approach.md`: Documentation of the water boundary approach
+   - `docs/direct_water_boundary_conversion.md`: Documentation of the direct water boundary conversion
+   - `docs/obstacle_boundary_pipeline.md`: Documentation of the obstacle boundary pipeline
+8. **Development Logs**:
+   - `worklog.md`: Track of development progress, issues, and solutions
+   - `epsg3857_pipeline_repair_log.md`: Log of repairs and fixes
+9. **Test Documentation**:
+   - `test_plan.md`: Comprehensive testing strategy and test cases
 
 ## Key Components
 
@@ -123,7 +147,7 @@ The pipeline consists of several SQL scripts that are executed in sequence:
    - Calculates edge lengths and costs
    - Excludes edges that intersect with water obstacles
 
-6. **Create Water Edges** (`06_create_water_edges_3857.sql`):
+6. **Create Water Edges** (`06_create_water_edges_improved_3857.sql`):
    - Creates edges that cross water obstacles
    - Calculates edge lengths and costs with water speed factors
    - Creates a unified edges table combining terrain and water edges
@@ -155,9 +179,18 @@ The pipeline uses a typed table approach for better performance and type safety:
 - `reset_database.py`: Resets the database tables
 - `export_slice.py`: Exports a graph slice around a specific coordinate
 - `visualize.py`: Visualizes the graph
-- `visualize_delaunay_triangulation.py`: Visualizes Delaunay triangulation
+- `import_osm_data.py`: Imports OSM data into the database
 
-### 6. Obstacle Boundary Pipeline
+### 6. Database Management Tools
+
+The pipeline includes several scripts for managing the database:
+
+- `reset_derived_tables.py`: Resets only the derived tables (preserves OSM data)
+- `reset_non_osm_tables.py`: Dynamically identifies and resets all non-OSM tables
+- `reset_all_tables.py`: Resets all tables (including OSM data)
+- `reset_osm_tables.py`: Resets only the OSM tables
+
+### 7. Obstacle Boundary Pipeline
 
 The obstacle boundary pipeline is a new approach that directly converts water obstacle polygons to graph elements:
 
@@ -183,7 +216,19 @@ The obstacle boundary pipeline creates the following tables:
 - `obstacle_boundary_connection_edges`: Edges connecting terrain grid points to boundary nodes
 - `unified_obstacle_edges`: A unified graph combining terrain edges, boundary edges, and connection edges
 
-### 7. Testing
+### 8. Pipeline Approaches
+
+The project includes several approaches for generating terrain graphs:
+
+1. **Standard Pipeline**: Basic pipeline with hexagonal grid and improved water edge creation
+2. **Water Boundary Approach**: Treats water obstacles as navigable boundaries
+3. **Obstacle Boundary Approach**: Directly converts water obstacle polygons to graph elements
+4. **Delaunay Triangulation** (Experimental): Uses Delaunay triangulation for terrain representation
+5. **Boundary Hexagon Layer** (Planned): Preserves hexagons at water boundaries for better connectivity
+
+See `docs/pipeline_comparison.md` for a detailed comparison of these approaches.
+
+### 9. Testing
 
 - `test_epsg3857_pipeline.py`: Tests for the standard pipeline
 - `test_delaunay_pipeline.py`: Tests for the Delaunay triangulation pipeline
@@ -194,35 +239,35 @@ The obstacle boundary pipeline creates the following tables:
 
 ## Recent Improvements
 
-1. **Hexagonal Terrain Grid Implementation**:
+1. **Documentation Improvements**:
+   - Created a consolidated README.md with clear status indicators for different components
+   - Added a component status document for quick reference
+   - Created a getting started guide for new engineers
+   - Added a pipeline comparison document to help choose the right approach
+   - Updated the project organization document to reflect the current structure
+
+2. **Hexagonal Terrain Grid Implementation**:
    - Replaced the rectangular grid with a hexagonal grid using ST_HexagonGrid()
    - Created a two-table structure with terrain_grid (polygons) and terrain_grid_points (centroids)
    - Added proper spatial indexing for improved query performance
    - Implemented comprehensive logging for better diagnostics
 
-2. **Water Edge Creation Improvements**:
+3. **Water Edge Creation Improvements**:
    - Increased the distance threshold from 500m to 1000m to accommodate the actual distances between terrain points
    - Documented the need for a more robust water edge creation algorithm in future updates
 
-3. **Obstacle Boundary Pipeline Implementation**:
+4. **Obstacle Boundary Pipeline Implementation**:
    - Developed a new approach that directly converts water obstacle polygons to graph elements
    - Created a more precise representation of water boundaries for navigation
    - Implemented a unified graph that combines terrain edges, boundary edges, and connection edges
    - Added visualization tools for the obstacle boundary graph
    - Created comprehensive documentation for the obstacle boundary pipeline
 
-4. **Database Management Improvements**:
+5. **Database Management Improvements**:
    - Created new scripts for managing the database (reset_derived_tables.py, reset_non_osm_tables.py, etc.)
    - Implemented a dynamic approach to identify and reset non-OSM tables
    - Added safety features like confirmation prompts for potentially destructive operations
    - Improved error handling and logging in database management scripts
-
-5. **Documentation Updates**:
-   - Updated the worklog.md with details about the water edge creation issues and proposed solutions
-   - Added a new section to the epsg3857_pipeline_repair_log.md about graph connectivity issues
-   - Updated the database_schema.md to reflect the new terrain grid structure and obstacle boundary tables
-   - Created a new obstacle_boundary_pipeline.md document with detailed information about the obstacle boundary pipeline
-   - Updated the project_organization.md to reflect the new project structure and components
 
 ## Current Issues and Future Work
 
@@ -252,57 +297,49 @@ The pipeline can be slow for large datasets, particularly during the dissolve st
 - Implement spatial partitioning for very large areas
 - Increase the work_mem parameter for better performance during the dissolve step
 
+### 4. Boundary Hexagon Layer Implementation
+
+The boundary hexagon layer approach is planned but not yet implemented. This approach would:
+
+- Preserve hexagons that intersect with water obstacles
+- Create nodes on the land portion of boundary hexagons
+- Connect boundary nodes to both terrain and obstacle nodes
+- Fill the "white space" between terrain and water obstacles
+
 ## Recommendations for Future Development
 
-### 1. Improve Water Edge Creation
+### 1. Standardize Parameter Naming
 
-The current approach for creating water edges has limitations:
+Implement a consistent parameter naming convention across all SQL files and Python scripts. This will help avoid the parameter naming mismatch issues that have been encountered.
 
-- The distance threshold may not be appropriate for all datasets
-- The requirement that edges must intersect water obstacles is too restrictive
-- Large water bodies may not have terrain points that can form valid crossing edges
+### 2. Implement Graph Connectivity Verification
 
-Recommendations:
-- Develop a more sophisticated algorithm that considers the shape and size of water bodies
-- Use different approaches for different types of water bodies (e.g., rivers vs lakes)
-- Implement a post-processing step to ensure graph connectivity
+Add a post-processing step to verify graph connectivity and add necessary edges where connectivity is missing. This will ensure that the graph is fully connected and can be used for pathfinding.
 
-### 2. Enhance Testing
+### 3. Optimize for Large Datasets
 
-The current tests focus on basic functionality, but more comprehensive tests are needed:
+Implement spatial partitioning and parallel processing for large datasets. This will improve performance and allow the pipeline to handle larger areas.
 
-- Add tests for graph connectivity
-- Add tests for edge costs and speed factors
-- Add tests for different environmental conditions
-- Add tests for different water body types and sizes
+### 4. Implement the Boundary Hexagon Layer Approach
 
-### 3. Improve Documentation
+Develop the planned boundary hexagon layer approach to address the "white space" issues between terrain and water obstacles. This will provide a more natural representation of water boundaries.
 
-The documentation is good, but could be enhanced:
+### 5. Improve Documentation
 
-- Add more detailed explanations of the algorithms used
-- Add more examples of how to use the pipeline for different scenarios
-- Add more troubleshooting information
-- Add more visualizations to illustrate the pipeline stages
+Continue to improve the documentation with more examples, diagrams, and explanations. This will help new engineers understand the project more quickly.
 
-### 4. Enhance Visualization
+### 6. Expand Test Coverage
 
-The current visualization tools are basic, but could be enhanced:
+Add more comprehensive tests, particularly for edge cases and large datasets. This will help ensure the pipeline works correctly in all scenarios.
 
-- Add more interactive visualizations
-- Add the ability to visualize the graph with different edge costs
-- Add the ability to visualize paths through the graph
-- Add the ability to visualize the impact of different environmental conditions
+### 7. Refactor SQL Scripts
 
-### 5. Implement Graph Analysis Tools
-
-The current pipeline focuses on graph creation, but tools for analyzing the graph would be useful:
-
-- Add tools for finding shortest paths
-- Add tools for analyzing graph connectivity
-- Add tools for analyzing the impact of different environmental conditions
-- Add tools for comparing different graph generation approaches
+Refactor the SQL scripts to improve readability, performance, and maintainability. This may include breaking down complex queries, adding more comments, and optimizing for performance.
 
 ## Conclusion
 
-The EPSG:3857 pipeline is a well-organized and comprehensive solution for terrain graph generation. The recent improvements, particularly the hexagonal grid implementation, have significantly enhanced the pipeline's capabilities. However, there are still issues to be addressed, particularly with graph connectivity. The recommendations outlined above should help guide future development efforts to make the pipeline even more robust and useful.
+The EPSG:3857 Terrain Graph Pipeline is a comprehensive solution for generating terrain graphs with accurate spatial operations. It addresses the coordinate reference system inconsistency issues in the original terrain graph pipeline and provides several approaches for different use cases.
+
+The project is well-organized with clear separation of concerns and a modular design. The documentation has been improved to help new engineers understand the project and get started quickly.
+
+While there are still some issues to address, particularly with graph connectivity and performance optimization, the pipeline is stable and ready for use in production environments.
