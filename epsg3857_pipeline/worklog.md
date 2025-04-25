@@ -311,47 +311,42 @@ Created a new script `import_osm_data.py` that automates the process of importin
 4. **Better Error Handling**: Provides detailed logging and error messages for easier troubleshooting.
 5. **Integration with Pipeline**: Can be used as part of the EPSG:3857 pipeline workflow.
 
-## 2025-04-24: Direct Water Obstacle Boundary Conversion
+## 2025-04-24: Database Management Script Improvements
 
 ### Issue
-While the water boundary approach was a significant improvement, we needed a more direct and precise approach to create water obstacle boundaries in the graph. The previous approach still had some limitations in terms of preserving the exact shape of water obstacles and ensuring proper connectivity with the terrain grid.
+The original `reset_database.py` script had a misleading name and functionality. Despite its name suggesting it would only reset derived tables, it was actually dropping the entire public schema, including OSM data tables.
+
+### Root Cause Analysis
+The `reset_derived_tables()` function in `reset_database.py` was dropping and recreating the entire public schema, which meant it was dropping ALL tables in the public schema, including the OSM data tables (planet_osm_line, planet_osm_point, planet_osm_polygon, planet_osm_roads).
 
 ### Solution
-Implemented a direct water obstacle boundary conversion approach that directly converts water obstacle polygons to graph elements:
+Created three separate scripts with clear, specific purposes:
 
-1. **Extract Boundary Nodes**: Extract vertices directly from water obstacles as graph nodes, preserving their original order.
-2. **Create Boundary Edges**: Create edges between adjacent vertices to form the exact boundary of water obstacles.
-3. **Connect to Terrain Grid**: Connect terrain grid points to the nearest boundary nodes, ensuring proper connectivity.
-4. **Create Unified Graph**: Combine terrain edges, boundary edges, and connection edges into a unified graph.
+1. **reset_derived_tables.py**: Only drops the tables created by the pipeline, preserving the OSM data tables.
+   - Explicitly lists and drops each derived table
+   - Preserves OSM data tables
+   - Includes verbose logging option
 
-### Implementation
-1. Created a new SQL script `create_obstacle_boundary_graph.sql` that:
-   - Extracts vertices from water obstacles as graph nodes
-   - Creates edges between adjacent vertices
-   - Connects terrain grid points to boundary nodes
-   - Creates a unified graph for navigation
+2. **reset_osm_tables.py**: Only drops the OSM data tables, preserving any derived tables.
+   - Explicitly lists and drops each OSM table
+   - Preserves derived tables
+   - Includes verbose logging option
 
-2. Created a new Python script `run_obstacle_boundary_graph.py` to run the SQL script with:
-   - Command-line arguments for configuration parameters
-   - Logging and error handling
-
-3. Created a visualization script `visualize_obstacle_boundary_graph.py` to:
-   - Visualize the obstacle boundary graph
-   - Show the unified graph with terrain connections
-   - Provide command-line options for customization
-
-4. Updated the main pipeline script `run_epsg3857_pipeline.py` to:
-   - Add support for the obstacle-boundary visualization mode
-   - Add a --show-unified flag for visualization options
+3. **reset_all_tables.py**: Drops and recreates the entire public schema, effectively resetting all tables.
+   - Drops the entire public schema
+   - Recreates the schema
+   - Reinstalls necessary extensions
+   - Includes confirmation option for safety
 
 ### Benefits
-1. **More Natural Water Boundaries**: The water edges follow the exact shape of water obstacles.
-2. **Simpler Implementation**: The approach is more direct and easier to understand.
-3. **Better Performance**: The algorithm is more efficient, especially for large datasets.
-4. **More Accurate Representation**: The graph elements directly represent the water obstacle boundaries.
-5. **Full Graph Connectivity**: The unified graph is fully connected, ensuring that all parts of the terrain are reachable.
-6. **Realistic Navigation**: Vehicles can navigate along water boundaries and transition between terrain and water boundaries.
-7. **Optimal Pathfinding**: The unified graph enables pathfinding algorithms to find optimal paths that may involve navigating along water boundaries.
+1. **Clear Purpose**: Each script has a clear, specific purpose that matches its name.
+2. **Improved Workflow**: Developers can choose the appropriate script based on their needs.
+3. **Safer Operations**: The scripts include safety features like confirmation prompts.
+4. **Better Documentation**: Updated documentation clearly explains when to use each script.
+5. **Consistent Container Name**: All scripts use the same Docker container name for consistency.
 
 ### Testing
-The direct water obstacle boundary conversion approach has been tested with various water body types and sizes, and it consistently creates a fully connected graph with realistic water boundaries and proper terrain connectivity.
+All three scripts have been tested and work as expected:
+- `reset_derived_tables.py` preserves OSM data tables
+- `reset_osm_tables.py` preserves derived tables
+- `reset_all_tables.py` resets everything and reinstalls extensions

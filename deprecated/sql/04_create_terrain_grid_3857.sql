@@ -1,58 +1,77 @@
--- 04_create_terrain_grid_3857.sql
--- Create a terrain grid that avoids water features
--- Uses EPSG:3857 (Web Mercator) for all operations
+/*
+ * Terrain Grid Creation with Hexagonal Grid
+ * 
+ * This script creates a hexagonal terrain grid that avoids water features.
+ * It uses ST_HexagonGrid for more natural terrain representation and movement patterns.
+ */
+
+-- Create terrain grid with EPSG:3857 coordinates
 -- Parameters:
--- :cell_size_m - Cell size in meters for the hexagonal grid
+-- :storage_srid - SRID for storage (default: 3857)
+-- :grid_spacing - Grid spacing in meters (default: 200)
 
 -- Create terrain_grid table
 DROP TABLE IF EXISTS terrain_grid CASCADE;
-CREATE TABLE terrain_grid AS
+CREATE TABLE terrain_grid (
+    id SERIAL PRIMARY KEY,
+    geom GEOMETRY(POLYGON, :storage_srid),
+    cost NUMERIC DEFAULT 1.0 -- Placeholder for terrain-based cost
+);
+
+-- Create the terrain grid
 WITH 
 -- Create a hexagonal grid covering the extent of the data
--- Using EPSG:3857 for consistent meter-based operations
 hex_grid AS (
     SELECT 
-        ST_SetSRID((ST_HexagonGrid(200, (
+        ST_SetSRID((ST_HexagonGrid(:grid_spacing, (
             SELECT ST_Extent(geom) 
-            FROM water_buf_dissolved
-        ))).geom, 3857) AS geom
+            FROM dissolved_water_buffers
+        ))).geom, :storage_srid) AS geom
     FROM generate_series(1,1)
 ),
--- Filter out grid cells that intersect with water buffers
+-- Filter out grid cells that intersect with water obstacles
 filtered_grid AS (
     SELECT hg.geom
     FROM hex_grid hg
     WHERE NOT EXISTS (
         SELECT 1 
-        FROM water_buf_dissolved wb
-        WHERE ST_Intersects(hg.geom, wb.geom)
+        FROM water_obstacles wo
+        WHERE ST_Intersects(hg.geom, wo.geom)
     )
 )
+INSERT INTO terrain_grid (geom, cost)
 SELECT 
-    ROW_NUMBER() OVER () AS id,
     geom,
-    1.0 AS cost -- Placeholder for slope-based cost
+    1.0 AS cost -- Placeholder for terrain-based cost
 FROM filtered_grid;
 
 -- Create spatial index
-CREATE INDEX ON terrain_grid USING GIST(geom);
+CREATE INDEX terrain_grid_geom_idx ON terrain_grid USING GIST(geom);
 
--- Add SRID metadata to the geometry column
-ALTER TABLE terrain_grid 
-ALTER COLUMN geom TYPE geometry(Geometry, 3857) 
-USING ST_SetSRID(geom, 3857);
+-- Create terrain grid centroids for connectivity
+DROP TABLE IF EXISTS terrain_grid_points CASCADE;
+CREATE TABLE terrain_grid_points (
+    id SERIAL PRIMARY KEY,
+    grid_id INTEGER REFERENCES terrain_grid(id),
+    geom GEOMETRY(POINT, :storage_srid)
+);
+
+-- Insert centroids
+INSERT INTO terrain_grid_points (grid_id, geom)
+SELECT 
+    id,
+    ST_Centroid(geom)
+FROM 
+    terrain_grid;
+
+-- Create spatial index on points
+CREATE INDEX terrain_grid_points_geom_idx ON terrain_grid_points USING GIST(geom);
 
 -- Log the results
--- Note: Using ST_Area directly on EPSG:3857 geometries (in square meters)
-SELECT 
-    COUNT(*) as grid_cell_count,
-    MIN(ST_Area(geom)) as min_cell_area_sqm,
-    MAX(ST_Area(geom)) as max_cell_area_sqm,
-    AVG(ST_Area(geom)) as avg_cell_area_sqm,
-    SUM(ST_Area(geom)) / 1000000 as total_area_sq_km
-FROM terrain_grid;
+SELECT 'Created ' || COUNT(*) || ' terrain grid cells' FROM terrain_grid;
+SELECT 'Created ' || COUNT(*) || ' terrain grid points' FROM terrain_grid_points;
 
--- Compare with water buffer area
+-- Compare with water obstacle area
 SELECT 
     'terrain_grid' AS source,
     COUNT(*) as count,
@@ -60,20 +79,20 @@ SELECT
 FROM terrain_grid
 UNION ALL
 SELECT 
-    'water_buf_dissolved' AS source,
+    'water_obstacles' AS source,
     COUNT(*) as count,
     SUM(ST_Area(geom)) / 1000000 as total_area_sq_km
-FROM water_buf_dissolved;
+FROM water_obstacles;
 
 -- Calculate the percentage of the total area covered by water
 WITH 
 total_area AS (
-    SELECT ST_Area(ST_SetSRID(ST_Envelope(ST_Extent(geom)), 3857)) / 1000000 as area_sq_km
-    FROM water_buf_dissolved
+    SELECT ST_Area(ST_SetSRID(ST_Envelope(ST_Extent(geom)), :storage_srid)) / 1000000 as area_sq_km
+    FROM dissolved_water_buffers
 ),
 water_area AS (
     SELECT SUM(ST_Area(geom)) / 1000000 as area_sq_km
-    FROM water_buf_dissolved
+    FROM water_obstacles
 ),
 terrain_area AS (
     SELECT SUM(ST_Area(geom)) / 1000000 as area_sq_km

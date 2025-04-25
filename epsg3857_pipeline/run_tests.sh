@@ -63,7 +63,7 @@ EXIT_CODE=0
 # Run standard EPSG:3857 pipeline tests
 if [ "$RUN_STANDARD" = true ]; then
     echo -e "${YELLOW}Running standard EPSG:3857 pipeline tests...${NC}"
-    python epsg3857_pipeline/tests/test_epsg3857_pipeline.py $VERBOSE
+    python core/tests/test_epsg3857_pipeline.py $VERBOSE
     
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}Standard EPSG:3857 pipeline tests passed!${NC}"
@@ -76,7 +76,7 @@ fi
 # Run Delaunay triangulation tests
 if [ "$RUN_DELAUNAY" = true ]; then
     echo -e "${YELLOW}Running Delaunay triangulation tests...${NC}"
-    python epsg3857_pipeline/tests/test_delaunay_pipeline.py $VERBOSE
+    python core/tests/test_delaunay_pipeline.py $VERBOSE
     
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}Delaunay triangulation tests passed!${NC}"
@@ -89,7 +89,7 @@ fi
 # Run Water Boundary Approach tests
 if [ "$RUN_WATER_BOUNDARY" = true ]; then
     echo -e "${YELLOW}Running Water Boundary Approach tests...${NC}"
-    python epsg3857_pipeline/tests/test_water_boundary_approach.py $VERBOSE
+    python core/tests/test_water_boundary_approach.py $VERBOSE
     
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}Water Boundary Approach tests passed!${NC}"
@@ -102,7 +102,7 @@ fi
 # Run Direct Water Obstacle Boundary Conversion tests
 if [ "$RUN_OBSTACLE_BOUNDARY" = true ]; then
     echo -e "${YELLOW}Running Direct Water Obstacle Boundary Conversion tests...${NC}"
-    python epsg3857_pipeline/tests/test_obstacle_boundary_graph.py $VERBOSE
+    python core/tests/test_obstacle_boundary_graph.py $VERBOSE
     
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}Direct Water Obstacle Boundary Conversion tests passed!${NC}"

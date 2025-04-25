@@ -1,29 +1,21 @@
 #!/usr/bin/env python3
 """
-Main script to run the water obstacle modeling pipeline.
+Water Obstacle Pipeline (Fixed Version)
 
-This script:
-1. Loads configuration from a JSON file
-2. Connects to the PostgreSQL database
-3. Executes SQL scripts in sequence with parameters from the configuration
-4. Logs the results of each step
+This script runs the water obstacle pipeline with the fixed water edge creation script.
 """
 
 import os
 import sys
 import argparse
 import logging
-import time
+import subprocess
 from pathlib import Path
-from typing import Dict, Any, List, Optional
 
-import psycopg2
-from psycopg2.extras import DictCursor
+# Add the parent directory to the path so we can import from sibling packages
+sys.path.append(str(Path(__file__).parent.parent.parent))
 
-# Add the parent directory to the path so we can import config_loader
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from scripts.config_loader import ConfigLoader
-
+from epsg3857_pipeline.scripts.config_loader_3857 import load_config
 
 # Configure logging
 logging.basicConfig(
@@ -31,221 +23,127 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('water_obstacle_pipeline.log')
+        logging.FileHandler('water_obstacle_pipeline_fixed.log')
     ]
 )
-logger = logging.getLogger('water_obstacle_pipeline')
+logger = logging.getLogger('water_obstacle_pipeline_fixed')
 
-
-def get_db_connection(conn_string: Optional[str] = None) -> psycopg2.extensions.connection:
-    """
-    Create a database connection.
+def run_sql_file(file_path, params=None):
+    """Run a SQL file with parameters."""
+    logger.info(f"Running SQL file: {file_path}")
     
-    Args:
-        conn_string: PostgreSQL connection string
+    # Use docker exec to run psql inside the container
+    cmd = [
+        "docker", "exec", "geo-graph-db-1",
+        "psql",
+        "-U", "gis",
+        "-d", "gis",
+        "-v", "ON_ERROR_STOP=1"
+    ]
     
-    Returns:
-        Database connection
-    
-    Raises:
-        Exception: If connection fails
-    """
-    if conn_string is None:
-        conn_string = os.environ.get('PG_URL', 'postgresql://gis:gis@localhost:5432/gis')
-    
-    try:
-        conn = psycopg2.connect(conn_string)
-        logger.info(f"Connected to database: {conn_string.split('@')[-1]}")
-        return conn
-    except Exception as e:
-        logger.error(f"Error connecting to database: {e}")
-        raise
-
-
-def execute_sql_file(
-    conn: psycopg2.extensions.connection,
-    sql_file: str,
-    params: Dict[str, Any]
-) -> None:
-    """
-    Execute a SQL file with parameters.
-    
-    Args:
-        conn: Database connection
-        sql_file: Path to SQL file
-        params: Dictionary of parameters to replace in the SQL
-    
-    Raises:
-        Exception: If SQL execution fails
-    """
-    logger.info(f"Executing SQL file: {os.path.basename(sql_file)}")
-    
-    start_time = time.time()
-    
-    try:
-        with open(sql_file, 'r') as f:
-            sql = f.read()
-        
-        # Replace parameters in SQL
+    # Add parameters
+    if params:
         for key, value in params.items():
-            if isinstance(value, list):
-                # Convert lists to PostgreSQL arrays
-                pg_array = "'{" + ",".join([str(item) for item in value]) + "}'"
-                sql = sql.replace(f":{key}", pg_array)
-            elif isinstance(value, bool):
-                # Convert booleans to PostgreSQL booleans
-                sql = sql.replace(f":{key}", str(value).lower())
-            else:
-                sql = sql.replace(f":{key}", str(value))
-        
-        with conn.cursor() as cur:
-            cur.execute(sql)
-        
-        conn.commit()
-        
-        elapsed_time = time.time() - start_time
-        logger.info(f"Completed {os.path.basename(sql_file)} in {elapsed_time:.2f} seconds")
+            cmd.extend(["-v", f"{key}={value}"])
     
-    except Exception as e:
-        conn.rollback()
-        logger.error(f"Error executing {os.path.basename(sql_file)}: {e}")
-        raise
-
-
-def run_pipeline(
-    config_path: str,
-    sql_dir: str,
-    conn_string: Optional[str] = None,
-    skip_steps: Optional[List[str]] = None,
-    use_fixed: bool = True
-) -> None:
-    """
-    Run the water obstacle modeling pipeline.
-    
-    Args:
-        config_path: Path to configuration JSON file
-        sql_dir: Directory containing SQL scripts
-        conn_string: PostgreSQL connection string
-        skip_steps: List of steps to skip (e.g., ['01', '02'])
-        use_fixed: Whether to use the fixed version of the dissolve water buffers SQL
-    
-    Raises:
-        Exception: If pipeline execution fails
-    """
-    # Load configuration
-    try:
-        config = ConfigLoader(config_path)
-        params = config.get_sql_params()
-        logger.info(f"Loaded configuration from {config_path}")
-    except Exception as e:
-        logger.error(f"Error loading configuration: {e}")
-        raise
-    
-    # Connect to database
-    conn = get_db_connection(conn_string)
+    # Add the file
+    cmd.extend(["-f", f"/var/lib/postgresql/data/{file_path}"])
     
     try:
-        # Define SQL scripts to execute in order
-        sql_files = [
-            "01_extract_water_features.sql",
-            "02_create_water_buffers.sql",
-            # Use the improved version of the dissolve water buffers SQL if specified
-            "03_dissolve_water_buffers_improved.sql" if use_fixed else "03_dissolve_water_buffers.sql",
-            "04_create_terrain_grid.sql",
-            "05_create_terrain_edges.sql",
-            "06_create_water_edges.sql",
-            "07_create_environmental_tables.sql"
-        ]
+        result = subprocess.run(
+            cmd,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
         
-        # Skip steps if specified
-        if skip_steps:
-            sql_files = [f for f in sql_files if not any(f.startswith(step) for step in skip_steps)]
-        
-        # Execute SQL scripts in order
-        for sql_file in sql_files:
-            sql_path = os.path.join(sql_dir, sql_file)
-            if not os.path.exists(sql_path):
-                logger.error(f"SQL file not found: {sql_path}")
-                raise FileNotFoundError(f"SQL file not found: {sql_path}")
-            
-            execute_sql_file(conn, sql_path, params)
-        
-        logger.info("Water obstacle modeling pipeline completed successfully")
-    
-    except Exception as e:
-        logger.error(f"Pipeline execution failed: {e}")
-        raise
-    
-    finally:
-        conn.close()
-        logger.info("Database connection closed")
+        logger.info(f"SQL file executed successfully")
+        return True
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error executing SQL file: {e.stderr}")
+        return False
 
+def run_pipeline(config_path, sql_dir):
+    """Run the water obstacle pipeline."""
+    logger.info(f"Running water obstacle pipeline with config: {config_path}")
+    
+    # Load the configuration
+    config = load_config(config_path)
+    
+    # Extract parameters from the configuration
+    params = {}
+    
+    # Add CRS parameters
+    params["source_srid"] = config["crs"]["source_srid"]
+    params["storage_srid"] = config["crs"]["storage_srid"]
+    params["output_srid"] = config["crs"]["output_srid"]
+    
+    # Add water buffer sizes
+    for feature_type, buffer_size in config["water_buffers"].items():
+        params[f"{feature_type}_buffer"] = buffer_size
+    
+    # Add terrain grid parameters
+    params["grid_spacing"] = config["terrain_grid"]["grid_spacing"]
+    params["max_edge_length"] = config["terrain_grid"]["max_edge_length"]
+    
+    # Add water edge parameters
+    params["water_speed_factor"] = config["water_edges"]["water_speed_factor"]
+    params["max_edge_distance"] = config["water_edges"]["max_edge_distance"]
+    
+    # Run the SQL files
+    sql_files = [
+        "01_extract_water_features_3857.sql",
+        "02_create_water_buffers_3857.sql",
+        "03_dissolve_water_buffers_3857.sql",
+        "04_create_terrain_grid_3857.sql",
+        "05_create_terrain_edges_3857.sql",
+        "06_create_water_edges_fixed_3857.sql"  # Use the fixed water edge creation script
+    ]
+    
+    for sql_file in sql_files:
+        file_path = os.path.join(sql_dir, sql_file)
+        if not run_sql_file(file_path, params):
+            logger.error(f"Failed to run SQL file: {file_path}")
+            return False
+    
+    logger.info("Water obstacle pipeline completed successfully")
+    return True
 
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(description="Run the water obstacle modeling pipeline")
+    parser = argparse.ArgumentParser(
+        description="Run the water obstacle pipeline with the fixed water edge creation script",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Run the pipeline with the default configuration
+  python run_water_obstacle_pipeline_fixed.py
+  
+  # Run the pipeline with a custom configuration
+  python run_water_obstacle_pipeline_fixed.py --config path/to/config.json
+"""
+    )
+    
+    # Configuration options
     parser.add_argument(
         "--config",
-        default="config/default_config.json",
-        help="Path to configuration JSON file"
+        default="epsg3857_pipeline/config/crs_standardized_config_fixed.json",
+        help="Path to the configuration file"
     )
     parser.add_argument(
         "--sql-dir",
-        default="sql",
-        help="Directory containing SQL scripts"
-    )
-    parser.add_argument(
-        "--conn-string",
-        help="PostgreSQL connection string (default: from PG_URL environment variable)"
-    )
-    parser.add_argument(
-        "--skip",
-        nargs="+",
-        help="Steps to skip (e.g., 01 02)"
-    )
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Enable verbose logging"
-    )
-    parser.add_argument(
-        "--use-original",
-        action="store_true",
-        help="Use the original dissolve water buffers SQL instead of the fixed version"
+        default="epsg3857_pipeline/sql",
+        help="Path to the directory containing SQL files"
     )
     
     args = parser.parse_args()
     
-    # Set log level
-    if args.verbose:
-        logger.setLevel(logging.DEBUG)
-    
-    # Resolve paths
-    base_dir = Path(__file__).parent.parent
-    # Fix the path resolution to avoid duplicate 'planning' in the path
-    if args.config.startswith('planning/'):
-        config_path = os.path.join(os.path.dirname(base_dir), args.config)
-    else:
-        config_path = base_dir / args.config if not os.path.isabs(args.config) else args.config
-    
-    if args.sql_dir.startswith('planning/'):
-        sql_dir = os.path.join(os.path.dirname(base_dir), args.sql_dir)
-    else:
-        sql_dir = base_dir / args.sql_dir if not os.path.isabs(args.sql_dir) else args.sql_dir
-    
-    try:
-        run_pipeline(
-            config_path=str(config_path),
-            sql_dir=str(sql_dir),
-            conn_string=args.conn_string,
-            skip_steps=args.skip,
-            use_fixed=not args.use_original
-        )
-        return 0
-    except Exception as e:
-        logger.error(f"Pipeline failed: {e}")
+    if not run_pipeline(args.config, args.sql_dir):
+        logger.error("Failed to run water obstacle pipeline")
         return 1
-
+    
+    return 0
 
 if __name__ == "__main__":
     sys.exit(main())

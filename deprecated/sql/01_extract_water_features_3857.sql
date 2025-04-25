@@ -1,111 +1,116 @@
--- 01_extract_water_features_3857.sql
--- Extract water features from OSM data, including both polygons and lines
--- Uses EPSG:3857 (Web Mercator) for all geometries
+/*
+ * Water Features Data Model
+ * 
+ * This script implements a typed table approach with views for water features:
+ * - water_features_polygon: Contains polygon water features (lakes, reservoirs)
+ * - water_features_line: Contains line water features (rivers, streams)
+ * - water_features: View that unifies both tables for backward compatibility
+ *
+ * This design provides type safety, performance benefits, and a clearer data model
+ * while maintaining compatibility with existing code through the view.
+ */
+
+-- Extract water features from OSM data with EPSG:3857 coordinates
 -- Parameters:
--- :polygon_types - Array of polygon water feature types to extract
--- :line_types - Array of line water feature types to extract
--- :min_area_sqm - Minimum area for polygon water features
--- :include_intermittent - Whether to include intermittent water features
+-- :storage_srid - SRID for storage (default: 3857)
+-- :export_srid - SRID for export (default: 4326)
+-- :analysis_srid - SRID for analysis (default: 3857)
 
--- Create water_features table
-DROP TABLE IF EXISTS water_features;
-CREATE TABLE water_features AS
--- Water polygons
-SELECT
-    osm_id AS id,
-    ST_Transform(way, 3857) AS geom,  -- Transform to Web Mercator
-    'polygon' AS feature_type,
+-- Drop existing tables and views
+DROP TABLE IF EXISTS water_features CASCADE;
+DROP TABLE IF EXISTS water_features_polygon CASCADE;
+DROP TABLE IF EXISTS water_features_line CASCADE;
+
+-- Create water features polygon table
+CREATE TABLE water_features_polygon (
+    id SERIAL PRIMARY KEY,
+    osm_id BIGINT,
+    name TEXT,
+    type TEXT,
+    geom GEOMETRY(POLYGON, :storage_srid)
+);
+
+-- Create water features line table
+CREATE TABLE water_features_line (
+    id SERIAL PRIMARY KEY,
+    osm_id BIGINT,
+    name TEXT,
+    type TEXT,
+    geom GEOMETRY(LINESTRING, :storage_srid)
+);
+
+-- Extract water polygons
+INSERT INTO water_features_polygon (osm_id, name, type, geom)
+SELECT 
+    osm_id,
     name,
-    water,
-    "natural",
-    waterway,
-    landuse,
-    width,
-    intermittent,
-    CASE
-        WHEN water IS NOT NULL THEN 'water'
-        WHEN "natural" = 'water' THEN 'natural'
-        WHEN landuse = 'reservoir' THEN 'reservoir'
-        ELSE NULL
-    END AS water_type
-FROM planet_osm_polygon
-WHERE (water IS NOT NULL)
-   OR ("natural" = 'water')
-   OR (landuse = 'reservoir')
-
-UNION ALL
-
--- Waterway lines (rivers, streams, canals, etc.)
-SELECT
-    osm_id AS id,
-    ST_Transform(way, 3857) AS geom,  -- Transform to Web Mercator
-    'line' AS feature_type,
-    name,
-    NULL AS water,
-    NULL AS "natural",
-    waterway,
-    NULL AS landuse,
-    width,
-    intermittent,
-    waterway AS water_type
-FROM planet_osm_line
+    'water',
+    ST_Transform(way, :storage_srid)::GEOMETRY(POLYGON, :storage_srid)
+FROM 
+    planet_osm_polygon
 WHERE 
-    -- Match explicit waterway types from config
-    waterway = ANY(ARRAY[:line_types])
-    -- Also include any named waterways even if not explicitly typed
-    OR (waterway IS NOT NULL AND name IS NOT NULL)
-    -- Include features with river or stream in their name
-    OR (name IS NOT NULL AND (
-        name ILIKE '%river%' OR 
-        name ILIKE '%stream%' OR 
-        name ILIKE '%creek%' OR 
-        name ILIKE '%brook%' OR
-        name ILIKE '%canal%'
-    ));
+    ("natural" = 'water' OR
+    "waterway" IN ('riverbank', 'dock') OR
+    "landuse" = 'reservoir' OR
+    "water" IS NOT NULL)
+    AND ST_GeometryType(way) = 'ST_Polygon';
 
--- Filter out small water bodies if specified
--- Note: Using ST_Area directly on EPSG:3857 geometries (in square meters)
-DELETE FROM water_features 
-WHERE feature_type = 'polygon' AND ST_Area(geom) < :min_area_sqm;
+-- Extract water multipolygons
+INSERT INTO water_features_polygon (osm_id, name, type, geom)
+SELECT 
+    osm_id,
+    name,
+    'water',
+    ST_Transform(way, :storage_srid)::GEOMETRY(POLYGON, :storage_srid)
+FROM 
+    planet_osm_polygon
+WHERE 
+    ("natural" = 'water' OR
+    "waterway" IN ('riverbank', 'dock') OR
+    "landuse" = 'reservoir' OR
+    "water" IS NOT NULL)
+    AND ST_GeometryType(way) = 'ST_MultiPolygon';
 
--- Filter out intermittent water features if not included
-DELETE FROM water_features 
-WHERE intermittent = 'yes' AND :include_intermittent = false;
+-- Extract water lines
+INSERT INTO water_features_line (osm_id, name, type, geom)
+SELECT 
+    osm_id,
+    name,
+    waterway,
+    ST_Transform(way, :storage_srid)
+FROM 
+    planet_osm_line
+WHERE 
+    waterway IN ('river', 'stream', 'canal', 'drain', 'ditch')
+    AND ST_GeometryType(way) IN ('ST_LineString', 'ST_MultiLineString');
 
--- Create spatial index
-CREATE INDEX ON water_features USING GIST(geom);
+-- Create spatial indexes
+CREATE INDEX water_features_polygon_geom_idx ON water_features_polygon USING GIST (geom);
+CREATE INDEX water_features_line_geom_idx ON water_features_line USING GIST (geom);
 
--- Add SRID metadata to the geometry column
-ALTER TABLE water_features 
-ALTER COLUMN geom TYPE geometry(Geometry, 3857) 
-USING ST_SetSRID(geom, 3857);
+-- Create a unified view for backward compatibility
+CREATE VIEW water_features AS
+SELECT 
+    id, 
+    osm_id, 
+    name, 
+    type, 
+    'polygon' AS geometry_type, 
+    geom::GEOMETRY(GEOMETRY, :storage_srid) AS geom 
+FROM 
+    water_features_polygon
+UNION ALL
+SELECT 
+    id, 
+    osm_id, 
+    name, 
+    type, 
+    'line' AS geometry_type, 
+    geom::GEOMETRY(GEOMETRY, :storage_srid) AS geom 
+FROM 
+    water_features_line;
 
 -- Log the results
-SELECT feature_type, water_type, COUNT(*) 
-FROM water_features 
-GROUP BY feature_type, water_type 
-ORDER BY feature_type, water_type;
-
--- Log area statistics for polygons (in square meters)
-SELECT 
-    water_type,
-    COUNT(*) as count,
-    MIN(ST_Area(geom)) as min_area_sqm,
-    MAX(ST_Area(geom)) as max_area_sqm,
-    AVG(ST_Area(geom)) as avg_area_sqm
-FROM water_features
-WHERE feature_type = 'polygon'
-GROUP BY water_type
-ORDER BY water_type;
-
--- Log length statistics for lines (in meters)
-SELECT 
-    water_type,
-    COUNT(*) as count,
-    MIN(ST_Length(geom)) as min_length_m,
-    MAX(ST_Length(geom)) as max_length_m,
-    AVG(ST_Length(geom)) as avg_length_m
-FROM water_features
-WHERE feature_type = 'line'
-GROUP BY water_type
-ORDER BY water_type;
+SELECT 'Extracted ' || COUNT(*) || ' polygon water features' FROM water_features_polygon;
+SELECT 'Extracted ' || COUNT(*) || ' line water features' FROM water_features_line;
+SELECT 'Extracted ' || COUNT(*) || ' total water features' FROM water_features;

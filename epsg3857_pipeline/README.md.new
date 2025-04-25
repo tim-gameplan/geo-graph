@@ -1,0 +1,146 @@
+# EPSG:3857 Terrain Graph Pipeline
+
+A standardized pipeline for terrain graph generation using EPSG:3857 (Web Mercator) for consistent and accurate spatial operations.
+
+## Overview
+
+This pipeline addresses the coordinate reference system (CRS) inconsistency issues in the original terrain graph pipeline by standardizing on EPSG:3857 (Web Mercator) for all internal processing. It also includes an enhanced Delaunay triangulation approach for more natural terrain representation.
+
+## Directory Structure
+
+The project is organized into the following directories:
+
+```
+epsg3857_pipeline/
+├── core/                  # Core production pipeline components
+│   ├── scripts/           # Main pipeline scripts
+│   └── sql/               # SQL scripts for the core pipeline
+├── tools/                 # Support tools for development and maintenance
+│   ├── database/          # Database management tools
+│   └── diagnostics/       # Diagnostic tools
+├── alternatives/          # Alternative approaches (stable but not primary)
+│   ├── standard/          # Original standard approach
+│   ├── fixed/             # Fixed water edge creation approach
+│   ├── water_boundary/    # Water boundary approach
+│   └── obstacle_boundary/ # Obstacle boundary approach
+├── experimental/          # Experimental features (under development)
+│   └── delaunay/          # Delaunay triangulation approach
+├── config/                # Configuration files
+├── docs/                  # Documentation
+├── tests/                 # Test scripts
+└── visualizations/        # Visualization outputs
+```
+
+## Key Features
+
+- **Consistent CRS Usage**: Uses EPSG:3857 (Web Mercator) for all internal processing, ensuring accurate metric-based measurements
+- **Delaunay Triangulation**: Optional terrain grid generation using Delaunay triangulation for more natural terrain representation
+- **Improved Water Feature Processing**: Enhanced water feature extraction, buffering, and dissolving with proper CRS handling
+- **Hexagonal Terrain Grid**: Uses a hexagonal grid for more natural terrain representation and movement patterns
+- **Improved Water Edge Creation**: Advanced algorithms for creating water crossing edges with better graph connectivity
+- **Water Boundary Approach**: Innovative approach that treats water obstacles as navigable boundaries rather than impassable barriers
+- **Direct Water Boundary Conversion**: Approach that directly converts water obstacle polygons to graph elements for clean boundary representation
+- **Configurable Parameters**: Extensive configuration options for water features, terrain grid, and environmental conditions
+- **Comprehensive Testing**: Automated tests to verify CRS consistency and triangulation quality
+- **Visualization Tools**: Tools for visualizing the terrain graph, water obstacles, and Delaunay triangulation
+
+## Usage
+
+### Importing OSM Data
+
+Before running the pipeline, you need to import OpenStreetMap (OSM) data into the PostGIS database:
+
+```bash
+# Import OSM data from a PBF file
+python epsg3857_pipeline/core/scripts/import_osm_data.py --osm-file data/subsets/iowa-latest.osm_ia-central_r10.0km.osm.pbf
+
+# Specify a different container name
+python epsg3857_pipeline/core/scripts/import_osm_data.py --osm-file data/subsets/iowa-latest.osm_ia-central_r10.0km.osm.pbf --container geo-graph-db-1
+
+# Enable verbose logging
+python epsg3857_pipeline/core/scripts/import_osm_data.py --osm-file data/subsets/iowa-latest.osm_ia-central_r10.0km.osm.pbf --verbose
+```
+
+### Running the Standard Pipeline
+
+```bash
+# Reset the database (if needed)
+python epsg3857_pipeline/core/scripts/reset_database.py --reset-derived
+
+# Run the standard EPSG:3857 pipeline with improved water edge creation (default)
+python epsg3857_pipeline/core/scripts/run_epsg3857_pipeline.py --mode standard
+
+# Run the standard pipeline with standard water edge creation (not recommended)
+python epsg3857_pipeline/core/scripts/run_epsg3857_pipeline.py --mode standard --standard-water-edges --config epsg3857_pipeline/config/crs_standardized_config.json
+
+# Run the standard pipeline with water boundary approach
+python epsg3857_pipeline/core/scripts/run_epsg3857_pipeline.py --mode standard --water-boundary --config epsg3857_pipeline/config/crs_standardized_config_boundary.json
+
+# Run the direct water obstacle boundary conversion
+python epsg3857_pipeline/alternatives/obstacle_boundary/run_obstacle_boundary_graph.py
+
+# Visualize the obstacle boundary graph
+python epsg3857_pipeline/alternatives/obstacle_boundary/visualize_obstacle_boundary_graph.py --output obstacle_boundary_graph.png
+```
+
+### Running the Delaunay Triangulation Pipeline (Experimental)
+
+```bash
+# Reset the database (if needed)
+python epsg3857_pipeline/core/scripts/reset_database.py --reset-derived
+
+# Run the Delaunay triangulation pipeline
+python epsg3857_pipeline/core/scripts/run_epsg3857_pipeline.py --mode delaunay --config epsg3857_pipeline/config/delaunay_config.json
+```
+
+### Exporting a Graph Slice
+
+```bash
+# Export a graph slice around a specific coordinate
+python epsg3857_pipeline/core/scripts/run_epsg3857_pipeline.py --export --lon -93.63 --lat 41.99 --minutes 60 --outfile iowa_central_3857.graphml
+```
+
+### Visualizing the Results
+
+```bash
+# Visualize the graph
+python epsg3857_pipeline/core/scripts/run_epsg3857_pipeline.py --visualize --viz-mode graphml --input iowa_central_3857.graphml
+
+# Visualize water obstacles
+python epsg3857_pipeline/core/scripts/run_epsg3857_pipeline.py --visualize --viz-mode water
+
+# Visualize the obstacle boundary graph
+python epsg3857_pipeline/alternatives/obstacle_boundary/visualize_obstacle_boundary_graph.py --output obstacle_boundary_graph.png
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+./epsg3857_pipeline/run_tests.sh
+
+# Run only standard pipeline tests
+./epsg3857_pipeline/run_tests.sh --standard-only
+
+# Run only Delaunay triangulation tests
+./epsg3857_pipeline/run_tests.sh --delaunay-only
+
+# Run tests with verbose output
+./epsg3857_pipeline/run_tests.sh --verbose
+```
+
+## Documentation
+
+For more detailed documentation, see:
+
+- [Database Schema](./docs/database_schema.md) - Detailed database schema documentation
+- [Project Organization](./docs/project_organization.md) - Overview of project structure and components
+- [Water Edge Creation Proposal](./docs/water_edge_creation_proposal.md) - Detailed proposal for improved water edge creation
+- [Water Boundary Approach](./docs/water_boundary_approach.md) - Detailed documentation of the water boundary approach
+- [Direct Water Boundary Conversion](./docs/direct_water_boundary_conversion.md) - Documentation of the direct water boundary conversion approach
+- [Development Worklog](./worklog.md) - Track development progress, issues, and solutions
+- [Test Plan](./test_plan.md) - Comprehensive testing strategy and test cases
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
