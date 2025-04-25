@@ -102,34 +102,78 @@ The script performs the following tasks:
 5. Imports the OSM data using osm2pgsql
 6. Provides detailed logging and error handling
 
+### Database Management
+
+The pipeline includes several scripts for managing the database:
+
+```bash
+# Reset only the derived tables (preserves OSM data)
+python epsg3857_pipeline/tools/database/reset_derived_tables.py
+
+# Reset only the derived tables with verbose output
+python epsg3857_pipeline/tools/database/reset_derived_tables.py --verbose
+
+# Dynamically identify and reset all non-OSM tables (preserves OSM data)
+python epsg3857_pipeline/tools/database/reset_non_osm_tables.py
+
+# Dynamically identify and reset all non-OSM tables with verbose output
+python epsg3857_pipeline/tools/database/reset_non_osm_tables.py --verbose
+
+# Reset all tables (including OSM data)
+python epsg3857_pipeline/tools/database/reset_all_tables.py
+
+# Reset all tables with confirmation prompt
+python epsg3857_pipeline/tools/database/reset_all_tables.py --confirm
+```
+
+The `reset_non_osm_tables.py` script is particularly useful as it dynamically identifies all non-OSM tables in the database and drops them, ensuring a clean slate for running the pipeline without having to reload OSM data.
+
 ### Running the Standard Pipeline
 
 ```bash
 # Reset the database (with confirmation prompt)
-python core/scripts/reset_database.py --reset-derived
+python epsg3857_pipeline/core/scripts/reset_database.py --reset-derived
 
 # Reset the database (skipping confirmation prompt)
-python core/scripts/reset_database.py --reset-derived --confirm
+python epsg3857_pipeline/core/scripts/reset_database.py --reset-derived --confirm
 
 # Run the standard EPSG:3857 pipeline with improved water edge creation (default)
 # Note: This will reset the database by default
-python run_epsg3857_pipeline.py --mode standard
+python epsg3857_pipeline/run_epsg3857_pipeline.py --mode standard
 
 # Run the standard pipeline without resetting the database (preserves existing data)
-python run_epsg3857_pipeline.py --mode standard --skip-reset
+python epsg3857_pipeline/run_epsg3857_pipeline.py --mode standard --skip-reset
 
 # Run the standard pipeline with standard water edge creation (not recommended)
-python run_epsg3857_pipeline.py --mode standard --standard-water-edges --config config/crs_standardized_config.json
+python epsg3857_pipeline/run_epsg3857_pipeline.py --mode standard --standard-water-edges --config epsg3857_pipeline/config/crs_standardized_config.json
 
 # Run the standard pipeline with water boundary approach
-python run_epsg3857_pipeline.py --mode standard --water-boundary --config config/crs_standardized_config_boundary.json
+python epsg3857_pipeline/run_epsg3857_pipeline.py --mode standard --water-boundary --config epsg3857_pipeline/config/crs_standardized_config_boundary.json
+```
 
-# Run the direct water obstacle boundary conversion
-python run_obstacle_boundary_pipeline.py
+### Running the Obstacle Boundary Pipeline
+
+The obstacle boundary pipeline directly converts water obstacle polygons to graph elements, creating a more precise representation of water boundaries:
+
+```bash
+# Run the obstacle boundary pipeline
+python epsg3857_pipeline/run_obstacle_boundary_pipeline.py
+
+# Run the obstacle boundary pipeline with verbose output
+python epsg3857_pipeline/run_obstacle_boundary_pipeline.py --verbose
+
+# Run the obstacle boundary pipeline with custom parameters
+python epsg3857_pipeline/run_obstacle_boundary_pipeline.py --storage-srid 3857 --max-connection-distance 300 --water-speed-factor 0.2
 
 # Visualize the obstacle boundary graph
-python run_epsg3857_pipeline.py --visualize --viz-mode obstacle-boundary
+python epsg3857_pipeline/core/obstacle_boundary/visualize.py
 ```
+
+The obstacle boundary pipeline creates the following tables:
+- `obstacle_boundary_nodes`: Vertices extracted from water obstacles
+- `obstacle_boundary_edges`: Edges connecting adjacent vertices along water boundaries
+- `obstacle_boundary_connection_edges`: Edges connecting terrain grid points to boundary nodes
+- `unified_obstacle_edges`: A unified graph combining terrain edges, boundary edges, and connection edges
 
 ### Running the Delaunay Triangulation Pipeline
 

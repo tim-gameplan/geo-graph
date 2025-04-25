@@ -9,41 +9,71 @@ The EPSG:3857 pipeline is organized into the following directories:
 ```
 epsg3857_pipeline/
 ├── config/                 # Configuration files
-│   ├── crs_standardized_config.json  # Standard EPSG:3857 config
-│   └── delaunay_config.json          # Delaunay triangulation config
+│   ├── crs_standardized_config.json         # Standard EPSG:3857 config
+│   ├── crs_standardized_config_improved.json # Config with improved water edge creation
+│   ├── crs_standardized_config_boundary.json # Config with water boundary approach
+│   └── delaunay_config.json                 # Delaunay triangulation config
+├── core/                   # Core implementation
+│   ├── scripts/            # Python scripts
+│   │   ├── config_loader_3857.py            # Configuration loader
+│   │   ├── export_slice.py                  # Graph slice export utility
+│   │   ├── import_osm_data.py               # OSM data import utility
+│   │   ├── reset_database.py                # Database reset utility
+│   │   ├── run_epsg3857_pipeline.py         # Main pipeline script
+│   │   ├── run_water_obstacle_pipeline_improved.py # Improved pipeline runner
+│   │   └── visualize.py                     # Visualization utility
+│   ├── sql/                # SQL scripts
+│   │   ├── 01_extract_water_features_3857.sql   # Extract water features
+│   │   ├── 02_create_water_buffers_3857.sql     # Create water buffers
+│   │   ├── 03_dissolve_water_buffers_3857.sql   # Dissolve water buffers
+│   │   ├── 04_create_terrain_grid_3857.sql      # Create terrain grid
+│   │   ├── 05_create_terrain_edges_3857.sql     # Create terrain edges
+│   │   ├── 06_create_water_edges_improved_3857.sql # Improved water edges
+│   │   └── 07_create_environmental_tables_3857.sql # Create environmental tables
+│   ├── tests/              # Test scripts
+│   │   ├── test_epsg3857_pipeline.py            # Tests for standard pipeline
+│   │   ├── test_delaunay_pipeline.py            # Tests for Delaunay pipeline
+│   │   ├── test_water_boundary_approach.py      # Tests for water boundary approach
+│   │   └── test_obstacle_boundary_graph.py      # Tests for obstacle boundary graph
+│   ├── utils/              # Utility modules
+│   │   ├── __init__.py                          # Package initialization
+│   │   └── logging_utils.py                     # Logging utilities
+│   └── obstacle_boundary/  # Obstacle boundary pipeline
+│       ├── __init__.py                          # Package initialization
+│       ├── create_obstacle_boundary_graph.sql   # SQL script for obstacle boundary graph
+│       ├── run_obstacle_boundary_pipeline.py    # Pipeline runner
+│       ├── visualize.py                         # Visualization utility
+│       └── test.py                              # Test script
 ├── docs/                   # Documentation
-│   ├── database_schema.md            # Database schema documentation
-│   └── project_organization.md       # This document
-├── scripts/                # Python scripts
-│   ├── config_loader_3857.py         # Configuration loader
-│   ├── export_slice.py               # Graph slice export utility
-│   ├── reset_database.py             # Database reset utility
-│   ├── run_unified_delaunay_pipeline.py  # Unified Delaunay pipeline
-│   ├── run_water_obstacle_pipeline_crs.py  # Standard pipeline
-│   ├── run_water_obstacle_pipeline_delaunay.py  # Delaunay pipeline
-│   ├── visualize.py                  # Visualization utility
-│   └── visualize_delaunay_triangulation.py  # Delaunay visualization
-├── sql/                    # SQL scripts
-│   ├── 01_extract_water_features_3857.sql  # Extract water features
-│   ├── 02_create_water_buffers_3857.sql    # Create water buffers
-│   ├── 03_dissolve_water_buffers_3857.sql  # Dissolve water buffers
-│   ├── 04_create_terrain_grid_3857.sql     # Create terrain grid
-│   ├── 04_create_terrain_grid_delaunay_3857.sql  # Create Delaunay grid
-│   ├── 05_create_terrain_edges_3857.sql    # Create terrain edges
-│   ├── 05_create_terrain_edges_delaunay_3857.sql  # Create Delaunay edges
-│   ├── 06_create_water_edges_3857.sql      # Create water edges
-│   └── 07_create_environmental_tables_3857.sql  # Create environmental tables
-├── tests/                  # Test scripts
-│   ├── test_crs_standardization.py   # Tests for CRS standardization
-│   ├── test_delaunay_pipeline.py     # Tests for Delaunay pipeline
-│   ├── test_delaunay_triangulation.py  # Tests for triangulation
-│   └── test_epsg3857_pipeline.py     # Tests for standard pipeline
-├── epsg3857_pipeline_repair_log.md  # Repair log
+│   ├── database_schema.md                   # Database schema documentation
+│   ├── direct_water_boundary_conversion.md  # Direct water boundary conversion documentation
+│   ├── obstacle_boundary_pipeline.md        # Obstacle boundary pipeline documentation
+│   ├── project_organization.md              # This document
+│   ├── water_boundary_approach.md           # Water boundary approach documentation
+│   └── water_edge_creation_proposal.md      # Water edge creation proposal
+├── tools/                  # Support tools
+│   ├── database/           # Database management tools
+│   │   ├── reset_all_tables.py              # Reset all tables
+│   │   ├── reset_derived_tables.py          # Reset only derived tables
+│   │   ├── reset_non_osm_tables.py          # Reset non-OSM tables
+│   │   └── reset_osm_tables.py              # Reset only OSM tables
+│   └── diagnostics/        # Diagnostic tools
+│       └── diagnostic_water_edges.sql       # Diagnostic queries for water edges
+├── alternatives/           # Alternative approaches
+│   ├── standard/           # Original standard approach
+│   ├── fixed/              # Fixed water edge creation approach
+│   ├── water_boundary/     # Water boundary approach
+│   └── obstacle_boundary/  # Obstacle boundary approach
+├── experimental/           # Experimental features
+│   └── delaunay/           # Delaunay triangulation approach
+├── visualizations/         # Visualization outputs
+├── epsg3857_pipeline_repair_log.md          # Repair log
 ├── README.md               # Project README
-├── run_epsg3857_pipeline.py  # Main pipeline script
-├── run_tests.sh            # Test runner script
-├── test_plan.md            # Test plan
-└── worklog.md              # Development worklog
+├── run_epsg3857_pipeline.py                 # Main pipeline script wrapper
+├── run_obstacle_boundary_pipeline.py        # Obstacle boundary pipeline wrapper
+├── run_tests.sh                             # Test runner script
+├── test_plan.md                             # Comprehensive test plan
+└── worklog.md                               # Development worklog
 ```
 
 ## Key Components
@@ -127,10 +157,38 @@ The pipeline uses a typed table approach for better performance and type safety:
 - `visualize.py`: Visualizes the graph
 - `visualize_delaunay_triangulation.py`: Visualizes Delaunay triangulation
 
-### 6. Testing
+### 6. Obstacle Boundary Pipeline
+
+The obstacle boundary pipeline is a new approach that directly converts water obstacle polygons to graph elements:
+
+1. **Extract Boundary Nodes** (`create_obstacle_boundary_graph.sql`):
+   - Extracts vertices from water obstacles as graph nodes
+   - Creates a table of obstacle boundary nodes with references to water obstacles
+
+2. **Create Boundary Edges** (`create_obstacle_boundary_graph.sql`):
+   - Creates edges between adjacent vertices along water boundaries
+   - Calculates edge lengths and creates a table of obstacle boundary edges
+
+3. **Connect Terrain to Boundary** (`create_obstacle_boundary_graph.sql`):
+   - Connects terrain grid points to the nearest boundary nodes
+   - Creates a table of obstacle boundary connection edges
+
+4. **Create Unified Graph** (`create_obstacle_boundary_graph.sql`):
+   - Combines terrain edges, boundary edges, and connection edges into a unified graph
+   - Calculates edge costs based on edge type and speed factors
+
+The obstacle boundary pipeline creates the following tables:
+- `obstacle_boundary_nodes`: Vertices extracted from water obstacles
+- `obstacle_boundary_edges`: Edges connecting adjacent vertices along water boundaries
+- `obstacle_boundary_connection_edges`: Edges connecting terrain grid points to boundary nodes
+- `unified_obstacle_edges`: A unified graph combining terrain edges, boundary edges, and connection edges
+
+### 7. Testing
 
 - `test_epsg3857_pipeline.py`: Tests for the standard pipeline
 - `test_delaunay_pipeline.py`: Tests for the Delaunay triangulation pipeline
+- `test_water_boundary_approach.py`: Tests for the water boundary approach
+- `test_obstacle_boundary_graph.py`: Tests for the obstacle boundary pipeline
 - `test_crs_standardization.py`: Tests for CRS standardization
 - `test_delaunay_triangulation.py`: Tests for triangulation quality
 
@@ -146,10 +204,25 @@ The pipeline uses a typed table approach for better performance and type safety:
    - Increased the distance threshold from 500m to 1000m to accommodate the actual distances between terrain points
    - Documented the need for a more robust water edge creation algorithm in future updates
 
-3. **Documentation Updates**:
+3. **Obstacle Boundary Pipeline Implementation**:
+   - Developed a new approach that directly converts water obstacle polygons to graph elements
+   - Created a more precise representation of water boundaries for navigation
+   - Implemented a unified graph that combines terrain edges, boundary edges, and connection edges
+   - Added visualization tools for the obstacle boundary graph
+   - Created comprehensive documentation for the obstacle boundary pipeline
+
+4. **Database Management Improvements**:
+   - Created new scripts for managing the database (reset_derived_tables.py, reset_non_osm_tables.py, etc.)
+   - Implemented a dynamic approach to identify and reset non-OSM tables
+   - Added safety features like confirmation prompts for potentially destructive operations
+   - Improved error handling and logging in database management scripts
+
+5. **Documentation Updates**:
    - Updated the worklog.md with details about the water edge creation issues and proposed solutions
    - Added a new section to the epsg3857_pipeline_repair_log.md about graph connectivity issues
-   - Updated the database_schema.md to reflect the new terrain grid structure
+   - Updated the database_schema.md to reflect the new terrain grid structure and obstacle boundary tables
+   - Created a new obstacle_boundary_pipeline.md document with detailed information about the obstacle boundary pipeline
+   - Updated the project_organization.md to reflect the new project structure and components
 
 ## Current Issues and Future Work
 

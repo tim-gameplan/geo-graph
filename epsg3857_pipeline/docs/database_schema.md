@@ -127,9 +127,39 @@ A unified view combining water_features_polygon and water_features_line.
 | condition | TEXT | Environmental condition |
 | factor | NUMERIC | Speed factor |
 
-## Unified Edges Table
+## Obstacle Boundary Tables (Obstacle Boundary Pipeline)
 
-### unified_edges
+### obstacle_boundary_nodes
+| Column | Type | Description |
+|--------|------|-------------|
+| node_id | SERIAL | Primary key |
+| water_obstacle_id | INTEGER | ID of the water obstacle |
+| point_order | INTEGER | Order of the point in the water obstacle boundary |
+| geom | GEOMETRY(POINT) | Point geometry in EPSG:3857 |
+
+### obstacle_boundary_edges
+| Column | Type | Description |
+|--------|------|-------------|
+| edge_id | SERIAL | Primary key |
+| source_node_id | INTEGER | Source boundary node ID |
+| target_node_id | INTEGER | Target boundary node ID |
+| water_obstacle_id | INTEGER | ID of the water obstacle |
+| length | NUMERIC | Edge length in meters |
+| geom | GEOMETRY(LINESTRING) | Edge geometry in EPSG:3857 |
+
+### obstacle_boundary_connection_edges
+| Column | Type | Description |
+|--------|------|-------------|
+| edge_id | SERIAL | Primary key |
+| terrain_node_id | INTEGER | Terrain grid point ID |
+| boundary_node_id | INTEGER | Boundary node ID |
+| water_obstacle_id | INTEGER | ID of the water obstacle |
+| length | NUMERIC | Edge length in meters |
+| geom | GEOMETRY(LINESTRING) | Edge geometry in EPSG:3857 |
+
+## Unified Edges Tables
+
+### unified_edges (Standard Pipeline)
 | Column | Type | Description |
 |--------|------|-------------|
 | id | SERIAL | Primary key |
@@ -138,6 +168,19 @@ A unified view combining water_features_polygon and water_features_line.
 | length | NUMERIC | Edge length in meters |
 | cost | NUMERIC | Edge cost (travel time) |
 | edge_type | TEXT | Edge type (terrain, terrain_water, water_boundary, water_connection) |
+| speed_factor | NUMERIC | Speed factor for the edge |
+| is_water | BOOLEAN | Flag indicating if the edge is in water |
+| geom | GEOMETRY(LINESTRING) | Edge geometry in EPSG:3857 |
+
+### unified_obstacle_edges (Obstacle Boundary Pipeline)
+| Column | Type | Description |
+|--------|------|-------------|
+| edge_id | SERIAL | Primary key |
+| source_id | INTEGER | Source node ID |
+| target_id | INTEGER | Target node ID |
+| length | NUMERIC | Edge length in meters |
+| cost | NUMERIC | Edge cost (travel time) |
+| edge_type | TEXT | Edge type (terrain, boundary, connection) |
 | speed_factor | NUMERIC | Speed factor for the edge |
 | is_water | BOOLEAN | Flag indicating if the edge is in water |
 | geom | GEOMETRY(LINESTRING) | Edge geometry in EPSG:3857 |
