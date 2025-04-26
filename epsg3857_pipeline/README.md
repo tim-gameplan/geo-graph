@@ -303,6 +303,29 @@ If you encounter issues with graph connectivity (e.g., paths cannot be found bet
 4. Adjusting the relevant parameters in the configuration file
 5. Using the visualization tools to identify disconnected components in the graph
 
+## Comparing Pipelines
+
+To easily compare different pipeline approaches, you can use the provided comparison script:
+
+```bash
+# Run both standard and obstacle boundary pipelines
+./epsg3857_pipeline/compare_pipelines.sh
+
+# Run with visualization
+./epsg3857_pipeline/compare_pipelines.sh --visualize
+
+# Run with graph slice export
+./epsg3857_pipeline/compare_pipelines.sh --export-slice
+
+# Run with custom coordinates and travel time
+./epsg3857_pipeline/compare_pipelines.sh --coordinates "-93.63 41.99" --travel-time 60
+
+# Run with all options
+./epsg3857_pipeline/compare_pipelines.sh --verbose --visualize --export-slice
+```
+
+This script will run both pipelines in sequence and provide outputs for comparison.
+
 ## Documentation
 
 For more detailed documentation, see:
@@ -312,5 +335,7 @@ For more detailed documentation, see:
 - [Water Edge Creation Proposal](./docs/water_edge_creation_proposal.md) - Detailed proposal for improved water edge creation
 - [Water Boundary Approach](./docs/water_boundary_approach.md) - Detailed documentation of the water boundary approach
 - [Direct Water Boundary Conversion](./docs/direct_water_boundary_conversion.md) - Documentation of the direct water boundary conversion approach
+- [Obstacle Boundary Implementation](./docs/obstacle_boundary_implementation.md) - Implementation details of the obstacle boundary approach
+- [Pipeline Comparison Scripts](./docs/pipeline_comparison_scripts.md) - Comprehensive reference for running different pipelines
 - [Development Worklog](./worklog.md) - Track development progress, issues, and solutions
 - [Test Plan](./test_plan.md) - Comprehensive testing strategy and test cases

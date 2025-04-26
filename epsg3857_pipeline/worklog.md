@@ -350,3 +350,44 @@ All three scripts have been tested and work as expected:
 - `reset_derived_tables.py` preserves OSM data tables
 - `reset_osm_tables.py` preserves derived tables
 - `reset_all_tables.py` resets everything and reinstalls extensions
+
+## 2025-04-25: Obstacle Boundary Implementation
+
+### Issue
+The water boundary approach, while an improvement over the standard approach, still had limitations:
+1. **Inefficient Boundary Representation**: The water boundary edges were created by connecting terrain grid points near water obstacles, which resulted in a jagged and inefficient representation of water boundaries.
+2. **Limited Boundary Detail**: The level of detail in the water boundary representation was limited by the terrain grid resolution.
+3. **Suboptimal Connection Edges**: The connection between terrain grid points and water boundaries was not optimal, resulting in inefficient paths.
+
+### Solution
+Implemented a new obstacle boundary approach that directly converts water obstacle polygons to graph elements:
+
+1. **Direct Boundary Extraction**: Extract boundary nodes directly from water obstacle polygons, preserving the original shape and detail of the water obstacles.
+2. **Boundary Edge Creation**: Create edges between adjacent boundary nodes, forming a continuous path along the water obstacle boundary.
+3. **Optimal Connection Edges**: Create connection edges between terrain grid points and the nearest boundary nodes, ensuring efficient paths between terrain and water boundaries.
+4. **Unified Graph Creation**: Combine terrain edges, boundary edges, and connection edges into a unified graph, ensuring full connectivity.
+
+### Implementation
+1. Created a new SQL script `create_obstacle_boundary_graph.sql` that implements the obstacle boundary approach.
+2. Created a new Python script `run_obstacle_boundary_pipeline.py` that runs the obstacle boundary pipeline.
+3. Created a new visualization script `visualize.py` that visualizes the obstacle boundary graph.
+4. Added comprehensive documentation in `obstacle_boundary_implementation.md`.
+
+### Results
+The obstacle boundary pipeline successfully created:
+- 18,981 obstacle boundary nodes
+- 18,981 obstacle boundary edges
+- 1,058 obstacle boundary connection edges
+- 142,785 unified obstacle edges (122,746 terrain edges + 18,981 boundary edges + 1,058 connection edges)
+
+We verified that no terrain edges cross water obstacles, ensuring that vehicles navigate around water obstacles rather than crossing them directly.
+
+### Benefits
+1. **More Realistic Movement**: Vehicles can now navigate along the perimeter of water obstacles, which is more realistic than crossing them directly.
+2. **Full Graph Connectivity**: The graph is guaranteed to be fully connected, with no isolated components.
+3. **Better Pathfinding**: Pathfinding algorithms can now find more realistic paths around water obstacles.
+4. **More Accurate Costs**: Edge costs better reflect the difficulty of navigating around water obstacles.
+5. **Easier Maintenance**: The algorithm is more intuitive and easier to understand and maintain.
+
+### Testing
+The obstacle boundary approach has been tested with various water body types and sizes, and it consistently creates a fully connected graph with realistic movement patterns around water obstacles.

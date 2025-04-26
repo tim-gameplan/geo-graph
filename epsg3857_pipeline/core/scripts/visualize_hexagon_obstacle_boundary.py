@@ -92,30 +92,53 @@ def parse_wkt(wkt):
     if not wkt:
         return None, []
 
-    # Extract geometry type
-    geometry_type = wkt.split('(')[0].strip()
+    try:
+        # Extract geometry type
+        geometry_type = wkt.split('(')[0].strip()
 
-    # Extract coordinates
-    if geometry_type == 'POINT':
-        coords_str = wkt.replace('POINT(', '').replace(')', '')
-        x, y = map(float, coords_str.split())
-        return geometry_type, [(x, y)]
-    elif geometry_type == 'LINESTRING':
-        coords_str = wkt.replace('LINESTRING(', '').replace(')', '')
-        coords = []
-        for point_str in coords_str.split(','):
-            x, y = map(float, point_str.strip().split())
-            coords.append((x, y))
-        return geometry_type, coords
-    elif geometry_type == 'POLYGON':
-        coords_str = wkt.replace('POLYGON((', '').replace('))', '')
-        coords = []
-        for point_str in coords_str.split(','):
-            x, y = map(float, point_str.strip().split())
-            coords.append((x, y))
-        return geometry_type, coords
-    else:
-        logger.warning(f"Unsupported geometry type: {geometry_type}")
+        # Extract coordinates
+        if geometry_type == 'POINT':
+            coords_str = wkt.replace('POINT(', '').replace(')', '')
+            x, y = map(float, coords_str.split())
+            return geometry_type, [(x, y)]
+        elif geometry_type == 'LINESTRING':
+            coords_str = wkt.replace('LINESTRING(', '').replace(')', '')
+            coords = []
+            for point_str in coords_str.split(','):
+                x, y = map(float, point_str.strip().split())
+                coords.append((x, y))
+            return geometry_type, coords
+        elif geometry_type == 'POLYGON':
+            # Handle POLYGON format more robustly
+            # Extract the outer ring coordinates (first set of parentheses)
+            if '((' in wkt and '))' in wkt:
+                # Extract content between the first (( and the matching ))
+                outer_ring = wkt[wkt.find('((') + 2:wkt.rfind('))')]
+                
+                # If there are multiple rings (holes), take only the first one
+                if '),(' in outer_ring:
+                    outer_ring = outer_ring.split('),(')[0]
+                
+                coords = []
+                for point_str in outer_ring.split(','):
+                    try:
+                        parts = point_str.strip().split()
+                        if len(parts) >= 2:
+                            x, y = float(parts[0]), float(parts[1])
+                            coords.append((x, y))
+                    except ValueError as e:
+                        logger.warning(f"Error parsing point coordinates: {point_str} - {e}")
+                        continue
+                
+                return geometry_type, coords
+            else:
+                logger.warning(f"Invalid POLYGON format: {wkt}")
+                return None, []
+        else:
+            logger.warning(f"Unsupported geometry type: {geometry_type}")
+            return None, []
+    except Exception as e:
+        logger.warning(f"Error parsing WKT: {wkt} - {e}")
         return None, []
 
 def visualize_hexagon_obstacle_boundary(output_file=None, container_name='geo-graph-db-1', verbose=False):
