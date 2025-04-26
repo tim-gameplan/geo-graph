@@ -32,7 +32,8 @@
     "boundary_edge_max_length": 200,
     "connection_distance": 1000,
     "max_connections_per_boundary_node": 5,
-    "max_connections_per_terrain_point": 2
+    "max_connections_per_terrain_point": 2,
+    "node_tolerance": 10
   },
   "environmental_conditions": {
     "default_speed": 5.0,

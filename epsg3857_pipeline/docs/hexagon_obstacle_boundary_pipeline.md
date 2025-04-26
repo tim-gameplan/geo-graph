@@ -104,6 +104,14 @@ The pipeline is configured using a JSON file. Here's an example configuration:
   "environmental_conditions": {
     "water_speed_factor": 0.2
   },
+  "obstacle_boundary": {
+    "boundary_node_spacing": 100,
+    "boundary_edge_max_length": 200,
+    "connection_distance": 1000,
+    "max_connections_per_boundary_node": 5,
+    "max_connections_per_terrain_point": 2,
+    "node_tolerance": 10
+  },
   "simplify_tolerance": 5
 }
 ```
@@ -118,6 +126,7 @@ The pipeline is configured using a JSON file. Here's an example configuration:
 - **water_crossing.max_crossing_distance**: The maximum distance for connecting terrain grid points to boundary nodes in meters (default: 300)
 - **environmental_conditions.water_speed_factor**: The speed factor for water edges (default: 0.2)
 - **simplify_tolerance**: The tolerance for simplifying geometries in meters (default: 5)
+- **obstacle_boundary.node_tolerance**: The distance tolerance for finding existing nodes when using the Line-to-Point Connection Strategy (default: 10)
 
 ## Data Model
 
@@ -142,6 +151,8 @@ The obstacle boundary approach extracts the exact shape of water obstacles:
 - **obstacle_boundary_edges**: Contains edges connecting adjacent boundary nodes
 - **obstacle_boundary_connection_edges**: Contains edges connecting terrain grid points to boundary nodes
 
+The pipeline now uses the Line-to-Point Connection Strategy, which connects terrain nodes to the closest point on water obstacle boundaries rather than to pre-existing boundary nodes. This approach creates more direct and natural connections, improving navigation around water obstacles. See [Line-to-Point Connection Strategy](./line_to_point_connection_strategy.md) for more details.
+
 ### Unified Graph
 
 The unified graph combines all edge tables:
@@ -154,6 +165,8 @@ The unified graph combines all edge tables:
 - **More Natural Terrain**: Hexagonal grid provides a more natural terrain representation
 - **Precise Water Boundaries**: Obstacle boundary approach preserves the exact shape of water obstacles
 - **Optimal Connectivity**: Connection edges ensure seamless navigation between terrain and water boundaries
+- **Direct Water Connections**: Line-to-Point Connection Strategy creates more direct and natural connections to water boundaries
+- **Better Distribution**: Connections are more evenly distributed along water boundaries, reducing redundancy
 - **Better Performance**: Unified graph improves pathfinding performance
 
 ## Comparison with Other Approaches

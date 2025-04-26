@@ -17,7 +17,6 @@
 -- :max_connections_per_boundary_node - Maximum number of connections per boundary node (default: 5)
 -- :max_connections_per_terrain_point - Maximum number of connections per terrain point (default: 2)
 -- :grid_spacing - Grid spacing for the hexagonal grid (default: 200)
--- :node_tolerance - Distance tolerance for finding existing nodes (default: 10)
 
 -- Create obstacle boundary nodes table
 DROP TABLE IF EXISTS obstacle_boundary_nodes CASCADE;
@@ -144,93 +143,57 @@ CREATE INDEX terrain_edges_geom_idx ON terrain_edges USING GIST (geom);
 CREATE INDEX terrain_edges_source_id_idx ON terrain_edges (source_id);
 CREATE INDEX terrain_edges_target_id_idx ON terrain_edges (target_id);
 
--- Connect terrain grid points to the closest point on water obstacles
--- Only connect boundary hexagons to water obstacles
--- This uses the line-to-point approach for more direct connections
+-- Connect terrain grid points to obstacle boundary nodes
+-- Only connect land and boundary hexagons, not water hexagons
+-- Limit the number of connections per boundary node and per terrain point
 INSERT INTO obstacle_boundary_connection_edges (terrain_node_id, boundary_node_id, water_obstacle_id, length, geom)
-WITH closest_boundary_points AS (
-    -- For each boundary terrain point, find the closest point on each water obstacle
+WITH potential_connections AS (
+    -- For each terrain point that is not a water hexagon, find all nearby boundary nodes
     SELECT 
         tgp.id AS terrain_node_id,
-        wo.id AS water_obstacle_id,
-        ST_ClosestPoint(wo.geom, tgp.geom) AS closest_point,
-        ST_Distance(tgp.geom, wo.geom) AS distance,
+        obn.node_id AS boundary_node_id,
+        obn.water_obstacle_id,
+        ST_Distance(tgp.geom, obn.geom) AS distance,
+        ST_MakeLine(tgp.geom, obn.geom) AS geom,
         -- Rank connections by distance for each terrain point
-        ROW_NUMBER() OVER (PARTITION BY tgp.id ORDER BY ST_Distance(tgp.geom, wo.geom)) AS terrain_rank
+        ROW_NUMBER() OVER (PARTITION BY tgp.id ORDER BY ST_Distance(tgp.geom, obn.geom)) AS terrain_rank,
+        -- Rank connections by distance for each boundary node
+        ROW_NUMBER() OVER (PARTITION BY obn.node_id ORDER BY ST_Distance(tgp.geom, obn.geom)) AS boundary_rank
     FROM 
         terrain_grid_points tgp
     CROSS JOIN 
-        water_obstacles wo
+        obstacle_boundary_nodes obn
     WHERE 
-        -- Only connect boundary hexagons
-        tgp.hex_type = 'boundary'
-        -- Only consider water obstacles within the maximum connection distance
-        AND ST_DWithin(tgp.geom, wo.geom, :max_connection_distance)
-        -- Ensure the connection line doesn't cross through ANY water obstacle
+        ST_DWithin(tgp.geom, obn.geom, :max_connection_distance)
+        -- Only connect terrain points that are not water hexagons
+        AND tgp.hex_type != 'water'
+        -- Prioritize boundary hexagons over land hexagons
+        AND (tgp.hex_type = 'boundary' OR NOT EXISTS (
+            SELECT 1 FROM terrain_grid_points tgp2
+            WHERE tgp2.hex_type = 'boundary'
+            AND ST_DWithin(tgp2.geom, obn.geom, :max_connection_distance)
+        ))
+        -- Ensure the connection line doesn't cross through the water obstacle
         AND NOT EXISTS (
             SELECT 1
-            FROM water_obstacles wo2
-            WHERE ST_Crosses(ST_MakeLine(tgp.geom, ST_ClosestPoint(wo.geom, tgp.geom)), wo2.geom)
+            FROM water_obstacles wo
+            WHERE wo.id = obn.water_obstacle_id
+            AND ST_Crosses(ST_MakeLine(tgp.geom, obn.geom), wo.geom)
         )
-),
--- Find the nearest existing boundary node to each closest point or prepare to create new ones
-boundary_node_mapping AS (
-    SELECT 
-        cbp.terrain_node_id,
-        cbp.water_obstacle_id,
-        cbp.closest_point,
-        cbp.distance,
-        -- Find the nearest existing boundary node within a tolerance
-        (
-            SELECT node_id 
-            FROM obstacle_boundary_nodes 
-            WHERE water_obstacle_id = cbp.water_obstacle_id 
-            AND ST_DWithin(geom, cbp.closest_point, :node_tolerance) -- Use node_tolerance parameter
-            ORDER BY ST_Distance(geom, cbp.closest_point) 
-            LIMIT 1
-        ) AS nearest_node_id,
-        -- Generate a new node ID if we'll need to create a new node
-        CASE 
-            WHEN NOT EXISTS (
-                SELECT 1 
-                FROM obstacle_boundary_nodes 
-                WHERE water_obstacle_id = cbp.water_obstacle_id 
-                AND ST_DWithin(geom, cbp.closest_point, :node_tolerance)
-            ) 
-            THEN nextval('obstacle_boundary_nodes_node_id_seq')
-            ELSE NULL
-        END AS new_node_id
-    FROM 
-        closest_boundary_points cbp
-    WHERE 
-        -- Limit the number of connections per terrain point
-        terrain_rank <= :max_connections_per_terrain_point
 )
--- Create the connection edges
 SELECT 
-    bnm.terrain_node_id,
-    COALESCE(bnm.nearest_node_id, bnm.new_node_id) AS boundary_node_id,
-    bnm.water_obstacle_id,
-    bnm.distance AS length,
-    ST_MakeLine(
-        (SELECT geom FROM terrain_grid_points WHERE id = bnm.terrain_node_id),
-        bnm.closest_point
-    ) AS geom
+    terrain_node_id,
+    boundary_node_id,
+    water_obstacle_id,
+    distance AS length,
+    geom
 FROM 
-    boundary_node_mapping bnm;
-
--- Insert new boundary nodes for the closest points that don't have nearby existing nodes
-INSERT INTO obstacle_boundary_nodes (node_id, water_obstacle_id, point_order, geom)
-SELECT 
-    bnm.new_node_id,
-    bnm.water_obstacle_id,
-    (SELECT COALESCE(MAX(point_order), 0) + 1 FROM obstacle_boundary_nodes WHERE water_obstacle_id = bnm.water_obstacle_id),
-    bnm.closest_point
-FROM 
-    boundary_node_mapping bnm
+    potential_connections
 WHERE 
-    bnm.nearest_node_id IS NULL
-    AND bnm.new_node_id IS NOT NULL;
+    -- Limit the number of connections per terrain point
+    terrain_rank <= :max_connections_per_terrain_point
+    -- Limit the number of connections per boundary node
+    AND boundary_rank <= :max_connections_per_boundary_node;
 
 -- Create a unified edges table
 DROP TABLE IF EXISTS unified_obstacle_edges CASCADE;

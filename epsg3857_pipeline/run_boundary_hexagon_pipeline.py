@@ -39,7 +39,7 @@ def main():
     # Reset the database if requested
     if args.reset:
         print("Resetting database...")
-        reset_cmd = f"python epsg3857_pipeline/core/scripts/reset_database.py --reset-derived"
+        reset_cmd = f"python epsg3857_pipeline/core/scripts/reset_database.py --reset-derived --confirm"
         reset_result = os.system(reset_cmd)
         if reset_result != 0:
             print(f"❌ Database reset failed: {reset_result}")

@@ -178,6 +178,7 @@ def run_pipeline(config_file, sql_dir, container_name='geo-graph-db-1', verbose=
     params['max_connection_distance'] = obstacle_boundary.get('connection_distance', 1000)
     params['max_connections_per_boundary_node'] = obstacle_boundary.get('max_connections_per_boundary_node', 5)
     params['max_connections_per_terrain_point'] = obstacle_boundary.get('max_connections_per_terrain_point', 2)
+    params['node_tolerance'] = obstacle_boundary.get('node_tolerance', 10)
 
     # Define SQL files to run
     sql_files = [
@@ -220,7 +221,7 @@ def main():
     # Reset the database if not skipped
     if not args.skip_reset:
         logger.info("Resetting the database...")
-        reset_cmd = f"python epsg3857_pipeline/core/scripts/reset_database.py --reset-derived"
+        reset_cmd = f"python epsg3857_pipeline/core/scripts/reset_database.py --reset-derived --confirm"
         if not run_command(reset_cmd, args.verbose):
             logger.error("Failed to reset the database")
             return 1

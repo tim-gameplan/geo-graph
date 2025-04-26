@@ -27,6 +27,7 @@ The project includes several pipeline approaches with different status levels:
   - **Improved Water Edge Creation**: Advanced algorithms for creating water crossing edges with better graph connectivity
   - **Water Boundary Approach**: Treats water obstacles as navigable boundaries rather than impassable barriers
   - **Direct Water Boundary Conversion**: Directly converts water obstacle polygons to graph elements
+  - **Line-to-Point Connection Strategy**: Connects terrain nodes to the closest point on water boundaries for more direct and natural connections
 - **Configurable Parameters**: Extensive configuration options for water features, terrain grid, and environmental conditions
 - **Comprehensive Testing**: Automated tests to verify CRS consistency and quality
 - **Visualization Tools**: Tools for visualizing the terrain graph, water obstacles, and different approaches
@@ -336,6 +337,7 @@ For more detailed documentation, see:
 - [Water Boundary Approach](./docs/water_boundary_approach.md) - Detailed documentation of the water boundary approach
 - [Direct Water Boundary Conversion](./docs/direct_water_boundary_conversion.md) - Documentation of the direct water boundary conversion approach
 - [Obstacle Boundary Implementation](./docs/obstacle_boundary_implementation.md) - Implementation details of the obstacle boundary approach
+- [Line-to-Point Connection Strategy](./docs/line_to_point_connection_strategy.md) - Documentation of the enhanced connection strategy for water boundaries
 - [Pipeline Comparison Scripts](./docs/pipeline_comparison_scripts.md) - Comprehensive reference for running different pipelines
 - [Development Worklog](./worklog.md) - Track development progress, issues, and solutions
 - [Test Plan](./test_plan.md) - Comprehensive testing strategy and test cases
