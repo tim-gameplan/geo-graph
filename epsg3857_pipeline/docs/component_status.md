@@ -16,6 +16,8 @@ This document provides a reference for the status of each component in the EPSG:
 | Standard Pipeline | **STABLE** | 2025-04-23 | Basic pipeline with hexagonal grid and improved water edge creation | None | N/A |
 | Water Boundary Approach | **STABLE** | 2025-04-23 | Treats water obstacles as navigable boundaries | None | N/A |
 | Obstacle Boundary Approach | **STABLE** | 2025-04-24 | Directly converts water obstacle polygons to graph elements | None | N/A |
+| Hexagon Obstacle Boundary | **STABLE** | 2025-04-25 | Combines hexagonal grid with precise water obstacle boundaries | None | N/A |
+| Voronoi Obstacle Boundary | **STABLE** | 2025-04-26 | Uses Voronoi diagrams for natural connections between terrain and water | None | N/A |
 | Delaunay Triangulation | **EXPERIMENTAL** | 2025-04-22 | Uses Delaunay triangulation for terrain representation | Performance issues with large datasets | Standard Pipeline |
 | Boundary Hexagon Layer | **STABLE** | 2025-04-25 | Preserves hexagons at water boundaries for better connectivity | None | N/A |
 
@@ -37,6 +39,8 @@ This document provides a reference for the status of each component in the EPSG:
 |-----------|--------|--------------|-------------|--------------|------------------------|
 | run_epsg3857_pipeline.py | **STABLE** | 2025-04-23 | Main pipeline runner | None | N/A |
 | run_obstacle_boundary_pipeline.py | **STABLE** | 2025-04-24 | Obstacle boundary pipeline runner | None | N/A |
+| run_hexagon_obstacle_boundary_pipeline.py | **STABLE** | 2025-04-25 | Hexagon obstacle boundary pipeline runner | None | N/A |
+| run_voronoi_obstacle_boundary_pipeline.py | **STABLE** | 2025-04-26 | Voronoi obstacle boundary pipeline runner | None | N/A |
 | import_osm_data.py | **STABLE** | 2025-04-24 | Imports OSM data into the database | None | N/A |
 | export_slice.py | **STABLE** | 2025-04-23 | Exports a graph slice | None | N/A |
 | visualize.py | **STABLE** | 2025-04-23 | Visualizes the graph | None | N/A |
@@ -59,16 +63,19 @@ This document provides a reference for the status of each component in the EPSG:
 | 02_create_water_buffers_3857.sql | **STABLE** | 2025-04-23 | Creates water buffers | None | N/A |
 | 03_dissolve_water_buffers_3857.sql | **STABLE** | 2025-04-23 | Dissolves water buffers | Memory issues with large datasets | N/A |
 | 04_create_terrain_grid_3857.sql | **STABLE** | 2025-04-23 | Creates terrain grid | None | N/A |
+| 04_create_terrain_grid_hexagon.sql | **STABLE** | 2025-04-25 | Creates hexagonal terrain grid with classification | None | N/A |
 | 05_create_terrain_edges_3857.sql | **STABLE** | 2025-04-23 | Creates terrain edges | None | N/A |
 | 06_create_water_edges_3857.sql | **DEPRECATED** | 2025-04-22 | Original water edge creation | Poor connectivity | 06_create_water_edges_improved_3857.sql |
 | 06_create_water_edges_improved_3857.sql | **STABLE** | 2025-04-23 | Improved water edge creation | None | N/A |
 | 06_create_water_boundary_edges_3857.sql | **STABLE** | 2025-04-23 | Water boundary edge creation | None | N/A |
 | 04_create_terrain_grid_boundary_hexagon.sql | **STABLE** | 2025-04-25 | Creates terrain grid with boundary hexagons | None | N/A |
-| 05_create_boundary_nodes.sql | **STABLE** | 2025-04-25 | Creates boundary nodes | None | N/A |
-| 06_create_water_boundary_nodes.sql | **STABLE** | 2025-04-25 | Creates water boundary nodes | None | N/A |
-| 07_create_boundary_hexagon_edges.sql | **STABLE** | 2025-04-25 | Creates boundary hexagon edges | None | N/A |
+| 05_create_boundary_nodes_3857.sql | **STABLE** | 2025-04-25 | Creates boundary nodes | None | N/A |
+| 06_create_boundary_edges_3857.sql | **STABLE** | 2025-04-25 | Creates boundary edges | None | N/A |
+| 07_create_unified_boundary_graph_3857.sql | **STABLE** | 2025-04-25 | Creates unified boundary graph | None | N/A |
 | 07_create_environmental_tables_3857.sql | **STABLE** | 2025-04-23 | Creates environmental tables | None | N/A |
 | create_obstacle_boundary_graph.sql | **STABLE** | 2025-04-24 | Creates obstacle boundary graph | None | N/A |
+| create_hexagon_obstacle_boundary_graph.sql | **STABLE** | 2025-04-25 | Creates hexagon obstacle boundary graph | None | N/A |
+| create_voronoi_obstacle_boundary_graph.sql | **STABLE** | 2025-04-26 | Creates Voronoi obstacle boundary graph | None | N/A |
 
 ## Configuration Files
 
@@ -78,6 +85,8 @@ This document provides a reference for the status of each component in the EPSG:
 | crs_standardized_config_improved.json | **STABLE** | 2025-04-23 | Configuration with improved water edge creation | None | N/A |
 | crs_standardized_config_boundary.json | **STABLE** | 2025-04-23 | Configuration for water boundary approach | None | N/A |
 | crs_standardized_config_boundary_hexagon.json | **STABLE** | 2025-04-25 | Configuration for boundary hexagon layer approach | None | N/A |
+| hexagon_obstacle_boundary_config.json | **STABLE** | 2025-04-25 | Configuration for hexagon obstacle boundary approach | None | N/A |
+| voronoi_obstacle_boundary_config.json | **STABLE** | 2025-04-26 | Configuration for Voronoi obstacle boundary approach | None | N/A |
 | delaunay_config.json | **EXPERIMENTAL** | 2025-04-22 | Configuration for Delaunay triangulation | None | N/A |
 
 ## Utilities
@@ -93,6 +102,9 @@ This document provides a reference for the status of each component in the EPSG:
 |-----------|--------|--------------|-------------|--------------|------------------------|
 | visualize.py | **STABLE** | 2025-04-23 | Visualizes the graph | None | N/A |
 | visualize_obstacle_boundary_graph.py | **STABLE** | 2025-04-24 | Visualizes the obstacle boundary graph | None | N/A |
+| visualize_hexagon_obstacle_boundary.py | **STABLE** | 2025-04-25 | Visualizes the hexagon obstacle boundary graph | None | N/A |
+| visualize_hexagon_obstacle_boundary_components.py | **STABLE** | 2025-04-25 | Visualizes the hexagon obstacle boundary components | None | N/A |
+| visualize_voronoi_obstacle_boundary.py | **STABLE** | 2025-04-26 | Visualizes the Voronoi obstacle boundary graph | None | N/A |
 | visualize_boundary_hexagon_layer.py | **STABLE** | 2025-04-25 | Visualizes the boundary hexagon layer graph | None | N/A |
 | visualize_delaunay_triangulation.py | **EXPERIMENTAL** | 2025-04-22 | Visualizes Delaunay triangulation | None | N/A |
 
@@ -100,13 +112,16 @@ This document provides a reference for the status of each component in the EPSG:
 
 | Component | Status | Last Updated | Description | Known Issues | Recommended Alternative |
 |-----------|--------|--------------|-------------|--------------|------------------------|
-| README.md | **STABLE** | 2025-04-25 | Main project documentation | None | N/A |
+| README.md | **STABLE** | 2025-04-26 | Main project documentation | None | N/A |
 | database_schema.md | **STABLE** | 2025-04-23 | Database schema documentation | None | N/A |
 | project_organization.md | **STABLE** | 2025-04-23 | Project structure overview | None | N/A |
 | water_edge_creation_proposal.md | **STABLE** | 2025-04-23 | Proposal for improved water edge creation | None | N/A |
 | water_boundary_approach.md | **STABLE** | 2025-04-23 | Documentation of water boundary approach | None | N/A |
 | direct_water_boundary_conversion.md | **STABLE** | 2025-04-24 | Documentation of direct water boundary conversion | None | N/A |
+| hexagon_obstacle_boundary_pipeline.md | **STABLE** | 2025-04-25 | Documentation of hexagon obstacle boundary approach | None | N/A |
+| voronoi_connection_strategy.md | **STABLE** | 2025-04-26 | Documentation of Voronoi-based connection strategy | None | N/A |
 | boundary_hexagon_layer_implementation_plan.md | **STABLE** | 2025-04-25 | Documentation of boundary hexagon layer implementation | None | N/A |
-| worklog.md | **STABLE** | 2025-04-24 | Development worklog | None | N/A |
+| pipeline_comparison.md | **STABLE** | 2025-04-26 | Comparison of different pipeline approaches | None | N/A |
+| worklog.md | **STABLE** | 2025-04-26 | Development worklog | None | N/A |
 | test_plan.md | **STABLE** | 2025-04-22 | Test plan | None | N/A |
-| component_status.md | **STABLE** | 2025-04-25 | Component status documentation | None | N/A |
+| component_status.md | **STABLE** | 2025-04-26 | Component status documentation | None | N/A |

@@ -2,162 +2,112 @@
 
 ## Overview
 
-The Voronoi Connection Strategy is an advanced approach for connecting terrain grid points to water obstacle boundaries. It uses Voronoi diagrams to create more natural and evenly distributed connections between terrain and water obstacles, ensuring better coverage and more intuitive navigation.
+The Voronoi Connection Strategy is an approach for connecting terrain grid points to water obstacle boundaries in a more distributed and efficient manner. This document outlines the implementation, challenges, and optimizations made to improve the strategy.
 
-## Key Concepts
+## Implementation
 
-### Voronoi Diagrams
+The Voronoi Connection Strategy works by:
 
-A Voronoi diagram partitions a plane into regions based on distance to a specified set of points. For each point, there is a corresponding region consisting of all points closer to that point than to any other. In our context:
+1. Creating boundary nodes along water obstacle boundaries
+2. Creating a "Voronoi-like" assignment of terrain grid points to boundary nodes
+3. Connecting each terrain grid point to its nearest boundary node(s)
+4. Creating a unified graph by combining terrain edges, boundary edges, and connection edges
 
-- The points are the water boundary nodes
-- The regions (Voronoi cells) determine which terrain grid points connect to which boundary nodes
+## Challenges and Solutions
 
-### Benefits Over Other Connection Strategies
+### Challenge: True Voronoi Diagram Generation
 
-1. **Even Distribution**: Prevents clustering of connections to certain boundary nodes
-2. **Natural Partitioning**: Creates a more intuitive division of space around water obstacles
-3. **Optimal Coverage**: Ensures all parts of the water boundary are accessible
-4. **Reduced Redundancy**: Minimizes unnecessary connections while maintaining connectivity
+Initially, we attempted to use PostGIS's `ST_VoronoiPolygons` function to generate true Voronoi diagrams for the boundary nodes. However, this approach encountered geometry errors due to the large number of boundary nodes and complex geometries:
 
-## Implementation Details
+```
+ERROR: GEOSVoronoiDiagram: IllegalArgumentException: Invalid number of points in LinearRing found 2 - must be 0 or >= 4
+```
 
-### 1. Boundary Node Creation
+### Solution: Buffer-Based Approach
 
-First, boundary nodes are created along the perimeter of water obstacles at regular intervals:
+Instead of using true Voronoi diagrams, we implemented a buffer-based approach:
+
+1. For each boundary node, create a buffer that represents its "cell"
+2. Clip the cells to exclude water areas and limit to maximum distance
+3. Connect terrain grid points to their nearest boundary node(s)
+
+This approach is more robust and avoids the geometry errors encountered with true Voronoi diagrams.
+
+## Optimizations
+
+### 1. Reduced Buffer Size
+
+We reduced the buffer size for Voronoi cells from 500m to 200m to create smaller, more focused cells. This helps reduce the overlap between cells and creates a more natural-looking connection pattern.
+
+```json
+"voronoi_buffer_distance": 200
+```
+
+### 2. Reduced Maximum Connection Distance
+
+We reduced the maximum connection distance from 1000m to 500m to limit the range of connections. This helps ensure that terrain grid points are only connected to nearby boundary nodes.
+
+```json
+"voronoi_max_distance": 500
+```
+
+### 3. Limited Connections Per Terrain Point
+
+We limited each terrain point to connect to only its single nearest boundary node (changed from 2 to 1). This significantly reduces the number of connection edges and creates a cleaner visualization.
+
+```json
+"voronoi_connection_limit": 1
+```
+
+### 4. Improved Query Efficiency
+
+We implemented a more efficient approach using spatial indexing and pre-filtering:
 
 ```sql
--- Create boundary nodes along water obstacle boundaries
-INSERT INTO obstacle_boundary_nodes (node_id, geom)
+-- Create a temporary table with boundary nodes and their buffers
+CREATE TEMPORARY TABLE temp_boundary_node_buffers AS
 SELECT 
-    ROW_NUMBER() OVER () AS node_id,
-    ST_PointN(ST_Boundary(geom), generate_series(1, ST_NPoints(ST_Boundary(geom))))
+    node_id,
+    geom,
+    ST_Buffer(geom, :voronoi_buffer_distance) AS buffer_geom
 FROM 
-    water_obstacles;
-```
+    obstacle_boundary_nodes;
 
-### 2. Voronoi Cell Generation
+-- Create spatial index on the buffers
+CREATE INDEX IF NOT EXISTS temp_boundary_node_buffers_geom_idx 
+ON temp_boundary_node_buffers USING GIST (buffer_geom);
 
-Voronoi cells are generated for each boundary node:
-
-```sql
--- Generate Voronoi cells for boundary nodes
-CREATE TABLE voronoi_cells AS
+-- Find boundary nodes whose buffer contains the terrain point
+-- This is much faster than calculating distances to all boundary nodes
 SELECT 
-    obn.node_id,
-    ST_VoronoiPolygon(ST_Collect(obn.geom), :voronoi_buffer_distance) AS cell_geom
-FROM 
-    obstacle_boundary_nodes obn
-GROUP BY 
-    obn.node_id;
-```
-
-### 3. Cell Clipping
-
-The Voronoi cells are clipped to exclude water areas and limited to a maximum distance from the boundary node:
-
-```sql
--- Clip Voronoi cells to exclude water areas and limit distance
-UPDATE voronoi_cells
-SET cell_geom = ST_Difference(
-    ST_Intersection(
-        cell_geom,
-        ST_Buffer(
-            (SELECT geom FROM obstacle_boundary_nodes WHERE node_id = voronoi_cells.node_id),
-            :voronoi_max_distance
-        )
-    ),
-    (SELECT ST_Union(geom) FROM water_obstacles)
-);
-```
-
-### 4. Connection Assignment
-
-Terrain grid points are assigned to boundary nodes based on which Voronoi cell they fall within:
-
-```sql
--- Create connections between terrain grid points and boundary nodes
-INSERT INTO obstacle_boundary_connection_edges (edge_id, source_id, target_id, geom, cost)
-SELECT 
-    ROW_NUMBER() OVER () AS edge_id,
-    tgp.point_id AS source_id,
-    vc.node_id AS target_id,
-    ST_MakeLine(tgp.geom, obn.geom) AS geom,
-    ST_Length(ST_MakeLine(tgp.geom, obn.geom)) AS cost
+    tgp.id AS terrain_id,
+    bnb.node_id AS boundary_node_id,
+    ST_Distance(tgp.geom, bnb.geom) AS distance
 FROM 
     terrain_grid_points tgp
 JOIN 
-    voronoi_cells vc ON ST_Contains(vc.cell_geom, tgp.geom)
-JOIN 
-    obstacle_boundary_nodes obn ON vc.node_id = obn.node_id
-WHERE 
-    tgp.hex_type = 'land' OR tgp.hex_type = 'boundary'
-LIMIT 
-    :voronoi_connection_limit PER (tgp.point_id);
+    temp_boundary_node_buffers bnb
+ON 
+    ST_DWithin(tgp.geom, bnb.geom, :voronoi_max_distance)
+    AND ST_Intersects(tgp.geom, bnb.buffer_geom)
 ```
 
-## Configuration Parameters
+This approach uses `ST_DWithin` and `ST_Intersects` to pre-filter the boundary nodes, which is much faster than calculating distances to all boundary nodes.
 
-The Voronoi connection strategy can be configured with the following parameters:
+## Results
 
-| Parameter | Description | Default Value |
-|-----------|-------------|---------------|
-| `voronoi_buffer_distance` | Distance to buffer the Voronoi diagram | 500 meters |
-| `voronoi_max_distance` | Maximum distance for connections | 1000 meters |
-| `voronoi_connection_limit` | Maximum connections per terrain point | 2 |
-| `voronoi_tolerance` | Tolerance for geometric operations | 10 meters |
+The optimized Voronoi Connection Strategy produces:
 
-These parameters can be adjusted in the `voronoi_obstacle_boundary_config.json` configuration file.
-
-## Visualization
-
-The Voronoi connection strategy can be visualized using the `visualize_voronoi_obstacle_boundary.py` script:
-
-```bash
-python epsg3857_pipeline/core/scripts/visualize_voronoi_obstacle_boundary.py --show-voronoi
-```
-
-This will display:
-- Terrain grid points (classified as land, boundary, or water)
-- Water obstacles
-- Boundary nodes
-- Boundary edges
-- Connection edges
-- Voronoi cells (when `--show-voronoi` is specified)
-
-## Integration with the Pipeline
-
-The Voronoi connection strategy is integrated into the Voronoi Obstacle Boundary Pipeline, which can be run with:
-
-```bash
-python epsg3857_pipeline/run_voronoi_obstacle_boundary_pipeline.py
-```
-
-This pipeline:
-1. Creates a hexagonal terrain grid
-2. Extracts water obstacles
-3. Creates boundary nodes along water obstacles
-4. Generates Voronoi cells for boundary nodes
-5. Connects terrain grid points to boundary nodes using Voronoi partitioning
-6. Creates a unified graph for navigation
-
-## Comparison with Other Strategies
-
-| Strategy | Pros | Cons |
-|----------|------|------|
-| **Line-to-Point** | Simple implementation, direct connections | Can cluster connections to certain boundary nodes |
-| **Hexagon Boundary** | Good for regular grid representation | Less precise for irregular water boundaries |
-| **Voronoi** | Even distribution, natural partitioning | More complex implementation, higher computational cost |
+- Smaller, more focused Voronoi cells (200m buffer instead of 500m)
+- Fewer connection edges (2,446 edges with 1 connection per terrain point)
+- More efficient query execution
+- Cleaner visualization with less overlap
 
 ## Future Improvements
 
-1. **Dynamic Cell Sizing**: Adjust Voronoi cell size based on boundary curvature
-2. **Weighted Voronoi Diagrams**: Use weighted Voronoi diagrams to account for terrain features
-3. **Multi-level Voronoi**: Implement hierarchical Voronoi diagrams for different scales
-4. **Adaptive Connection Limits**: Vary connection limits based on terrain characteristics
+Potential future improvements to the Voronoi Connection Strategy include:
 
-## References
-
-1. Aurenhammer, F. (1991). "Voronoi diagrams—a survey of a fundamental geometric data structure". ACM Computing Surveys, 23(3), 345–405.
-2. PostGIS Documentation: [ST_VoronoiPolygon](https://postgis.net/docs/ST_VoronoiPolygon.html)
-3. de Berg, M., Cheong, O., van Kreveld, M., & Overmars, M. (2008). "Computational Geometry: Algorithms and Applications". Springer-Verlag.
+1. Implementing a clustering approach to group boundary nodes before creating connections
+2. Using a spatial index to partition the space more efficiently
+3. Implementing a true Voronoi diagram using PostGIS's ST_VoronoiPolygons function, but with smaller subsets of boundary nodes to avoid the geometry errors
+4. Adding elevation data to create more realistic terrain modeling

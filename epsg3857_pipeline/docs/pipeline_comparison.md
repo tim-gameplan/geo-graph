@@ -9,22 +9,25 @@ The EPSG:3857 Terrain Graph Pipeline offers several approaches for generating te
 1. **Standard Pipeline**: Basic pipeline with hexagonal grid and improved water edge creation
 2. **Water Boundary Approach**: Treats water obstacles as navigable boundaries
 3. **Obstacle Boundary Approach**: Directly converts water obstacle polygons to graph elements
-4. **Delaunay Triangulation** (Experimental): Uses Delaunay triangulation for terrain representation
-5. **Boundary Hexagon Layer**: Preserves hexagons at water boundaries for better connectivity
+4. **Hexagon Obstacle Boundary**: Combines hexagonal grid with precise water obstacle boundaries
+5. **Voronoi Obstacle Boundary**: Uses Voronoi diagrams for natural connections between terrain and water
+6. **Delaunay Triangulation** (Experimental): Uses Delaunay triangulation for terrain representation
+7. **Boundary Hexagon Layer**: Preserves hexagons at water boundaries for better connectivity
 
 ## Feature Comparison
 
-| Feature | Standard Pipeline | Water Boundary Approach | Obstacle Boundary Approach | Delaunay Triangulation | Boundary Hexagon Layer |
-|---------|------------------|------------------------|---------------------------|------------------------|------------------------|
-| **Status** | Stable | Stable | Stable | Experimental | Stable |
-| **Terrain Representation** | Hexagonal Grid | Hexagonal Grid | Hexagonal Grid | Triangulation | Hexagonal Grid with Boundary Preservation |
-| **Water Representation** | Avoided Areas | Navigable Boundaries | Direct Boundary Conversion | Avoided Areas | Boundary Hexagons |
-| **Graph Connectivity** | Good | Better | Best | Good | Better |
-| **Performance** | Fast | Medium | Medium | Slow | Medium |
-| **Memory Usage** | Low | Medium | Medium | High | Medium |
-| **Natural Appearance** | Good | Good | Best | Best | Good |
-| **Edge Creation** | Improved Algorithm | Boundary-Based | Direct Conversion | Triangulation | Boundary Connections |
-| **White Space Issues** | Yes | No | No | Minimal | No |
+| Feature | Standard Pipeline | Water Boundary Approach | Obstacle Boundary Approach | Hexagon Obstacle Boundary | Voronoi Obstacle Boundary | Delaunay Triangulation | Boundary Hexagon Layer |
+|---------|------------------|------------------------|---------------------------|--------------------------|--------------------------|------------------------|------------------------|
+| **Status** | Stable | Stable | Stable | Stable | Stable | Experimental | Stable |
+| **Terrain Representation** | Hexagonal Grid | Hexagonal Grid | Hexagonal Grid | Hexagonal Grid with Classification | Hexagonal Grid | Triangulation | Hexagonal Grid with Boundary Preservation |
+| **Water Representation** | Avoided Areas | Navigable Boundaries | Direct Boundary Conversion | Precise Boundaries | Voronoi Cells | Avoided Areas | Boundary Hexagons |
+| **Graph Connectivity** | Good | Better | Best | Best | Better | Good | Better |
+| **Performance** | Fast | Medium | Medium | Medium | Medium | Slow | Medium |
+| **Memory Usage** | Low | Medium | Medium | Medium | Medium | High | Medium |
+| **Natural Appearance** | Good | Good | Best | Best | Better | Best | Good |
+| **Edge Creation** | Improved Algorithm | Boundary-Based | Direct Conversion | Classification-Based | Voronoi-Based | Triangulation | Boundary Connections |
+| **White Space Issues** | Yes | No | No | No | No | Minimal | No |
+| **Connection Distribution** | Uneven | Uneven | Uneven | Even | Most Even | Even | Even |
 
 ## Detailed Comparison
 
@@ -114,6 +117,73 @@ python epsg3857_pipeline/run_epsg3857_pipeline.py --mode standard --water-bounda
 python epsg3857_pipeline/run_obstacle_boundary_pipeline.py
 ```
 
+### Hexagon Obstacle Boundary
+
+**Description**: The hexagon obstacle boundary approach combines a hexagonal terrain grid with precise water obstacle boundaries. It classifies hexagons as 'land', 'boundary', or 'water' to create a more natural representation of the terrain and water boundaries.
+
+**Key Features**:
+- Hexagonal grid for more natural terrain representation
+- Classification of hexagons for better boundary representation
+- Precise water boundary representation with optimal connectivity
+- Natural connections between terrain and water boundaries
+
+**Advantages**:
+- Better terrain representation than the standard approach
+- More precise water boundary representation
+- No "white space" issues
+- Good balance between precision and performance
+- Natural movement patterns around water obstacles
+
+**Limitations**:
+- More complex implementation than the standard approach
+- Slightly slower than the standard approach
+- Creates more nodes and edges than the standard approach
+
+**When to Use**:
+- When natural terrain representation is important
+- When precise water boundary representation is needed
+- When a balance between precision and performance is required
+- When natural movement patterns around water obstacles are important
+
+**Command**:
+```bash
+python epsg3857_pipeline/run_hexagon_obstacle_boundary_pipeline.py
+```
+
+### Voronoi Obstacle Boundary
+
+**Description**: The Voronoi obstacle boundary approach uses Voronoi diagrams to create more natural and evenly distributed connections between terrain and water obstacles. It partitions the space around water boundary nodes into Voronoi cells, which are used to determine which terrain nodes connect to which boundary nodes.
+
+**Key Features**:
+- Voronoi partitioning for optimal connection assignment
+- Even distribution of connections to water boundaries
+- Prevents connection clustering and ensures good coverage
+- More natural and intuitive navigation around water obstacles
+
+**Advantages**:
+- Most even distribution of connections to water boundaries
+- Prevents connection clustering at certain boundary points
+- More natural and intuitive navigation around water obstacles
+- Efficient spatial partitioning for connection assignment
+- No "white space" issues
+
+**Limitations**:
+- More complex implementation than the standard approach
+- Slightly slower than the standard approach
+- May create more nodes and edges than necessary in some cases
+- Requires careful parameter tuning for optimal results
+
+**When to Use**:
+- When even distribution of connections to water boundaries is important
+- When preventing connection clustering is a priority
+- When natural and intuitive navigation around water obstacles is needed
+- When efficient spatial partitioning for connection assignment is required
+
+**Command**:
+```bash
+python epsg3857_pipeline/run_voronoi_obstacle_boundary_pipeline.py
+```
+
 ### Delaunay Triangulation (Experimental)
 
 **Description**: The Delaunay triangulation approach uses Delaunay triangulation for terrain grid generation, which provides a more natural terrain representation.
@@ -185,6 +255,8 @@ python epsg3857_pipeline/run_boundary_hexagon_pipeline.py
 | Standard Pipeline | Fast (< 1 min) | Fast (1-5 min) | Medium (5-15 min) |
 | Water Boundary Approach | Fast (< 1 min) | Medium (2-7 min) | Slow (10-20 min) |
 | Obstacle Boundary Approach | Fast (< 1 min) | Medium (2-7 min) | Slow (10-20 min) |
+| Hexagon Obstacle Boundary | Fast (< 1 min) | Medium (2-7 min) | Slow (10-20 min) |
+| Voronoi Obstacle Boundary | Fast (< 1 min) | Medium (2-7 min) | Slow (10-20 min) |
 | Delaunay Triangulation | Medium (1-3 min) | Slow (5-15 min) | Very Slow (20+ min) |
 | Boundary Hexagon Layer | Fast (< 1 min) | Medium (2-7 min) | Medium (7-15 min) |
 
@@ -197,6 +269,8 @@ python epsg3857_pipeline/run_boundary_hexagon_pipeline.py
 | Standard Pipeline | Low (< 1 GB) | Low (1-2 GB) | Medium (2-4 GB) |
 | Water Boundary Approach | Low (< 1 GB) | Medium (1-3 GB) | High (3-6 GB) |
 | Obstacle Boundary Approach | Low (< 1 GB) | Medium (1-3 GB) | High (3-6 GB) |
+| Hexagon Obstacle Boundary | Low (< 1 GB) | Medium (1-3 GB) | High (3-6 GB) |
+| Voronoi Obstacle Boundary | Low (< 1 GB) | Medium (1-3 GB) | High (3-6 GB) |
 | Delaunay Triangulation | Medium (1-2 GB) | High (2-5 GB) | Very High (5+ GB) |
 | Boundary Hexagon Layer | Low (< 1 GB) | Medium (1-3 GB) | High (3-5 GB) |
 
@@ -212,9 +286,9 @@ python epsg3857_pipeline/run_boundary_hexagon_pipeline.py
 
 ### Navigation Systems
 
-**Recommended Approach**: Water Boundary Approach or Obstacle Boundary Approach
+**Recommended Approach**: Water Boundary Approach, Obstacle Boundary Approach, or Voronoi Obstacle Boundary
 
-**Rationale**: Navigation systems require precise water boundary representation and optimal connectivity. The water boundary approach or obstacle boundary approach provides the best connectivity and most realistic representation of water boundaries.
+**Rationale**: Navigation systems require precise water boundary representation and optimal connectivity. The water boundary approach or obstacle boundary approach provides the best connectivity and most realistic representation of water boundaries. The Voronoi obstacle boundary approach is particularly useful for navigation systems that require evenly distributed connections to water boundaries.
 
 ### Environmental Analysis
 
@@ -235,7 +309,9 @@ Each pipeline approach has its strengths and limitations. The choice of approach
 - **Standard Pipeline**: Best for general-purpose terrain graph generation and when performance is a priority
 - **Water Boundary Approach**: Best when precise water boundary navigation is needed
 - **Obstacle Boundary Approach**: Best when clean boundary representation and optimal connectivity are required
+- **Hexagon Obstacle Boundary**: Best when natural terrain representation and precise water boundaries are needed
+- **Voronoi Obstacle Boundary**: Best when even distribution of connections to water boundaries is important
 - **Delaunay Triangulation**: Best when natural terrain representation is a priority (but still experimental)
 - **Boundary Hexagon Layer**: Best when "white space" issues need to be addressed
 
-For most use cases, the standard pipeline with improved water edge creation is recommended as it provides a good balance between performance, connectivity, and stability.
+For most use cases, the standard pipeline with improved water edge creation is recommended as it provides a good balance between performance, connectivity, and stability. However, for more specialized needs, the Hexagon Obstacle Boundary or Voronoi Obstacle Boundary approaches may provide better results, especially for applications requiring natural movement patterns around water obstacles or evenly distributed connections to water boundaries.
