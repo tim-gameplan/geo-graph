@@ -16,6 +16,7 @@ RUN_DELAUNAY=true
 RUN_WATER_BOUNDARY=true
 RUN_OBSTACLE_BOUNDARY=true
 RUN_BOUNDARY_HEXAGON=true
+RUN_VORONOI=true
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -57,6 +58,7 @@ while [[ $# -gt 0 ]]; do
       RUN_WATER_BOUNDARY=false
       RUN_OBSTACLE_BOUNDARY=false
       RUN_BOUNDARY_HEXAGON=true
+      RUN_VORONOI=false
       shift
       ;;
     --hexagon-obstacle-only)
@@ -65,6 +67,7 @@ while [[ $# -gt 0 ]]; do
       RUN_WATER_BOUNDARY=false
       RUN_OBSTACLE_BOUNDARY=false
       RUN_BOUNDARY_HEXAGON=false
+      RUN_VORONOI=false
       # We'll run the hexagon obstacle test directly
       echo -e "${YELLOW}Running Hexagon Obstacle Boundary tests...${NC}"
       python core/tests/test_hexagon_obstacle_boundary.py $VERBOSE
@@ -74,6 +77,25 @@ while [[ $# -gt 0 ]]; do
           exit 0
       else
           echo -e "${RED}Hexagon Obstacle Boundary tests failed!${NC}"
+          exit 1
+      fi
+      ;;
+    --voronoi-obstacle-only)
+      RUN_STANDARD=false
+      RUN_DELAUNAY=false
+      RUN_WATER_BOUNDARY=false
+      RUN_OBSTACLE_BOUNDARY=false
+      RUN_BOUNDARY_HEXAGON=false
+      RUN_VORONOI=false
+      # We'll run the voronoi obstacle test directly
+      echo -e "${YELLOW}Running Voronoi Obstacle Boundary tests...${NC}"
+      python core/tests/test_voronoi_obstacle_boundary.py $VERBOSE
+      
+      if [ $? -eq 0 ]; then
+          echo -e "${GREEN}Voronoi Obstacle Boundary tests passed!${NC}"
+          exit 0
+      else
+          echo -e "${RED}Voronoi Obstacle Boundary tests failed!${NC}"
           exit 1
       fi
       ;;
@@ -162,6 +184,19 @@ if [ "$RUN_BOUNDARY_HEXAGON" = true ]; then
         echo -e "${GREEN}Hexagon Obstacle Boundary tests passed!${NC}"
     else
         echo -e "${RED}Hexagon Obstacle Boundary tests failed!${NC}"
+        EXIT_CODE=1
+    fi
+fi
+
+# Run Voronoi Obstacle Boundary tests
+if [ "$RUN_VORONOI" = true ]; then
+    echo -e "${YELLOW}Running Voronoi Obstacle Boundary tests...${NC}"
+    python core/tests/test_voronoi_obstacle_boundary.py $VERBOSE
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}Voronoi Obstacle Boundary tests passed!${NC}"
+    else
+        echo -e "${RED}Voronoi Obstacle Boundary tests failed!${NC}"
         EXIT_CODE=1
     fi
 fi

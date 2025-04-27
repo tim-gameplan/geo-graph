@@ -1,0 +1,43 @@
+{
+  "crs": {
+    "storage": 3857,
+    "export": 4326,
+    "analysis": 3857
+  },
+  "water_features": {
+    "polygon_types": ["water", "natural", "reservoir"],
+    "line_types": ["river", "stream", "canal", "drain", "ditch"]
+  },
+  "water_buffers": {
+    "default": 50,
+    "lake": 100,
+    "river": 75,
+    "stream": 30
+  },
+  "terrain_grid": {
+    "grid_spacing": 200,
+    "max_edge_length": 500,
+    "hex_size": 200,
+    "hex_buffer": 50
+  },
+  "obstacle_boundary": {
+    "boundary_node_spacing": 50,
+    "boundary_edge_max_length": 200,
+    "connection_distance": 1000,
+    "max_connections_per_boundary_node": 5,
+    "max_connections_per_terrain_point": 2,
+    "node_tolerance": 10
+  },
+  "voronoi_connection": {
+    "voronoi_buffer_distance": 200,
+    "voronoi_max_distance": 500,
+    "voronoi_connection_limit": 1,
+    "voronoi_tolerance": 10
+  },
+  "environmental_conditions": {
+    "default_speed": 5.0,
+    "water_speed_factor": 0.2,
+    "uphill_speed_factor": 0.8,
+    "downhill_speed_factor": 1.2
+  }
+}

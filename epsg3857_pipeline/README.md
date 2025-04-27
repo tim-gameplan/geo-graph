@@ -15,6 +15,8 @@ The project includes several pipeline approaches with different status levels:
 | Standard Pipeline | **STABLE** | Basic pipeline with hexagonal grid and improved water edge creation | General purpose terrain graph generation |
 | Water Boundary Approach | **STABLE** | Treats water obstacles as navigable boundaries | When precise water boundary navigation is needed |
 | Obstacle Boundary Approach | **STABLE** | Directly converts water obstacle polygons to graph elements | For clean boundary representation with optimal connectivity |
+| Hexagon Obstacle Boundary | **STABLE** | Combines hexagonal grid with precise water obstacle boundaries | For better terrain representation with accurate water boundaries |
+| Voronoi Obstacle Boundary | **STABLE** | Uses Voronoi diagrams for natural connections between terrain and water | For optimal and evenly distributed connections to water boundaries |
 | Delaunay Triangulation | **EXPERIMENTAL** | Uses Delaunay triangulation for terrain representation | For more natural terrain representation (still under development) |
 | Boundary Hexagon Layer | **PLANNED** | Preserves hexagons at water boundaries for better connectivity | To address "white space" issues between terrain and water |
 
@@ -28,6 +30,7 @@ The project includes several pipeline approaches with different status levels:
   - **Water Boundary Approach**: Treats water obstacles as navigable boundaries rather than impassable barriers
   - **Direct Water Boundary Conversion**: Directly converts water obstacle polygons to graph elements
   - **Line-to-Point Connection Strategy**: Connects terrain nodes to the closest point on water boundaries for more direct and natural connections
+  - **Voronoi Connection Strategy**: Uses Voronoi diagrams to create more natural and evenly distributed connections between terrain and water obstacles
 - **Configurable Parameters**: Extensive configuration options for water features, terrain grid, and environmental conditions
 - **Comprehensive Testing**: Automated tests to verify CRS consistency and quality
 - **Visualization Tools**: Tools for visualizing the terrain graph, water obstacles, and different approaches
@@ -114,6 +117,32 @@ python epsg3857_pipeline/run_obstacle_boundary_pipeline.py
 python epsg3857_pipeline/run_obstacle_boundary_pipeline.py --storage-srid 3857 --max-connection-distance 300 --water-speed-factor 0.2
 ```
 
+#### Hexagon Obstacle Boundary
+
+```bash
+# Run the hexagon obstacle boundary pipeline
+python epsg3857_pipeline/run_hexagon_obstacle_boundary_pipeline.py
+
+# Run with visualization
+python epsg3857_pipeline/run_hexagon_obstacle_boundary_pipeline.py --visualize
+
+# Run with custom parameters
+python epsg3857_pipeline/run_hexagon_obstacle_boundary_pipeline.py --config epsg3857_pipeline/config/hexagon_obstacle_boundary_config.json --verbose
+```
+
+#### Voronoi Obstacle Boundary
+
+```bash
+# Run the Voronoi obstacle boundary pipeline
+python epsg3857_pipeline/run_voronoi_obstacle_boundary_pipeline.py
+
+# Run with visualization and show Voronoi cells
+python epsg3857_pipeline/run_voronoi_obstacle_boundary_pipeline.py --visualize --show-voronoi
+
+# Run with custom parameters
+python epsg3857_pipeline/run_voronoi_obstacle_boundary_pipeline.py --config epsg3857_pipeline/config/voronoi_obstacle_boundary_config.json --verbose
+```
+
 #### Delaunay Triangulation (Experimental)
 
 ```bash
@@ -139,6 +168,18 @@ python epsg3857_pipeline/core/scripts/visualize.py --mode water
 
 # Visualize the obstacle boundary graph
 python epsg3857_pipeline/core/obstacle_boundary/visualize.py --output obstacle_boundary_graph.png
+
+# Visualize the hexagon obstacle boundary graph
+python epsg3857_pipeline/core/scripts/visualize_hexagon_obstacle_boundary.py --output hexagon_obstacle_boundary.png
+
+# Visualize the hexagon obstacle boundary components
+python epsg3857_pipeline/core/scripts/visualize_hexagon_obstacle_boundary_components.py --output hexagon_components.png
+
+# Visualize the Voronoi obstacle boundary graph
+python epsg3857_pipeline/core/scripts/visualize_voronoi_obstacle_boundary.py --output voronoi_obstacle_boundary.png
+
+# Visualize the Voronoi obstacle boundary with Voronoi cells
+python epsg3857_pipeline/core/scripts/visualize_voronoi_obstacle_boundary.py --show-voronoi --output voronoi_cells.png
 ```
 
 ## Pipeline Approaches in Detail
@@ -182,6 +223,34 @@ Key features:
 python epsg3857_pipeline/run_obstacle_boundary_pipeline.py
 ```
 
+### Hexagon Obstacle Boundary
+
+The hexagon obstacle boundary approach combines a hexagonal terrain grid with precise water obstacle boundaries. It classifies hexagons as 'land', 'boundary', or 'water' to create a more natural representation of the terrain and water boundaries.
+
+Key features:
+- Hexagonal grid for more natural terrain representation
+- Classification of hexagons for better boundary representation
+- Precise water boundary representation with optimal connectivity
+- Natural connections between terrain and water boundaries
+
+```bash
+python epsg3857_pipeline/run_hexagon_obstacle_boundary_pipeline.py
+```
+
+### Voronoi Obstacle Boundary
+
+The Voronoi obstacle boundary approach uses Voronoi diagrams to create more natural and evenly distributed connections between terrain and water obstacles. It partitions the space around water boundary nodes into Voronoi cells, which are used to determine which terrain nodes connect to which boundary nodes.
+
+Key features:
+- Voronoi partitioning for optimal connection assignment
+- Even distribution of connections to water boundaries
+- Prevents connection clustering and ensures good coverage
+- More natural and intuitive navigation around water obstacles
+
+```bash
+python epsg3857_pipeline/run_voronoi_obstacle_boundary_pipeline.py
+```
+
 ### Delaunay Triangulation (Experimental)
 
 The Delaunay triangulation approach uses Delaunay triangulation for terrain grid generation, which provides a more natural terrain representation.
@@ -202,6 +271,8 @@ The pipeline is configured using JSON files in the `epsg3857_pipeline/config/` d
 - `crs_standardized_config.json`: Configuration for the standard pipeline
 - `crs_standardized_config_improved.json`: Configuration with improved water edge creation parameters
 - `crs_standardized_config_boundary.json`: Configuration for the water boundary approach
+- `hexagon_obstacle_boundary_config.json`: Configuration for the hexagon obstacle boundary approach
+- `voronoi_obstacle_boundary_config.json`: Configuration for the Voronoi obstacle boundary approach
 - `delaunay_config.json`: Configuration for the Delaunay triangulation pipeline
 
 ### Example Configuration
@@ -278,6 +349,12 @@ python epsg3857_pipeline/tools/database/reset_all_tables.py
 # Run only Delaunay triangulation tests
 ./epsg3857_pipeline/run_tests.sh --delaunay-only
 
+# Run only hexagon obstacle boundary tests
+./epsg3857_pipeline/run_tests.sh --hexagon-obstacle-only
+
+# Run only Voronoi obstacle boundary tests
+./epsg3857_pipeline/run_tests.sh --voronoi-obstacle-only
+
 # Run tests with verbose output
 ./epsg3857_pipeline/run_tests.sh --verbose
 ```
@@ -338,6 +415,8 @@ For more detailed documentation, see:
 - [Direct Water Boundary Conversion](./docs/direct_water_boundary_conversion.md) - Documentation of the direct water boundary conversion approach
 - [Obstacle Boundary Implementation](./docs/obstacle_boundary_implementation.md) - Implementation details of the obstacle boundary approach
 - [Line-to-Point Connection Strategy](./docs/line_to_point_connection_strategy.md) - Documentation of the enhanced connection strategy for water boundaries
+- [Hexagon Obstacle Boundary Pipeline](./docs/hexagon_obstacle_boundary_pipeline.md) - Detailed documentation of the hexagon obstacle boundary approach
+- [Voronoi Connection Strategy](./docs/voronoi_connection_strategy.md) - Documentation of the Voronoi-based connection strategy for water boundaries
 - [Pipeline Comparison Scripts](./docs/pipeline_comparison_scripts.md) - Comprehensive reference for running different pipelines
 - [Development Worklog](./worklog.md) - Track development progress, issues, and solutions
 - [Test Plan](./test_plan.md) - Comprehensive testing strategy and test cases

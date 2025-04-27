@@ -171,6 +171,8 @@ Examples:
     args = parser.parse_args()
     
     if args.confirm:
+        logger.info("Confirmation flag provided, proceeding with reset")
+    else:
         confirmation = input("This will delete all non-OSM tables in the database. Are you sure? (y/n): ")
         if confirmation.lower() != 'y':
             logger.info("Operation cancelled by user")
