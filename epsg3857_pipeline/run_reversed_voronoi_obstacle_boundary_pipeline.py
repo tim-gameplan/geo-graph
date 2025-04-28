@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Voronoi Obstacle Boundary Pipeline Runner
+Reversed Voronoi Obstacle Boundary Pipeline Runner
 
-This script is a simple wrapper around the core Voronoi obstacle boundary pipeline script.
+This script is a simple wrapper around the core Reversed Voronoi obstacle boundary pipeline script.
 It runs the pipeline with default parameters and visualizes the results.
 
-The Voronoi approach uses Voronoi diagrams to create more natural connections between
-terrain and water obstacles, ensuring better coverage and more intuitive navigation.
+The Reversed Voronoi approach creates Voronoi cells for boundary terrain points instead of boundary nodes,
+which can lead to more natural connections and better distribution of connections across the water boundary.
 """
 
 import os
@@ -19,7 +19,7 @@ def main():
     """
     Main function to parse arguments and run the pipeline.
     """
-    parser = argparse.ArgumentParser(description='Run the Voronoi obstacle boundary pipeline')
+    parser = argparse.ArgumentParser(description='Run the Reversed Voronoi obstacle boundary pipeline')
     parser.add_argument('--config', default='epsg3857_pipeline/config/voronoi_obstacle_boundary_config.json', help='Path to the configuration file')
     parser.add_argument('--sql-dir', default='epsg3857_pipeline/core/sql', help='Path to the directory containing SQL files')
     parser.add_argument('--container', default='geo-graph-db-1', help='Name of the Docker container')
@@ -35,7 +35,7 @@ def main():
     # Build the command
     cmd = [
         "python",
-        "epsg3857_pipeline/core/scripts/run_voronoi_obstacle_boundary_pipeline.py"
+        "epsg3857_pipeline/core/scripts/run_reversed_voronoi_obstacle_boundary_pipeline.py"
     ]
     
     # Add arguments

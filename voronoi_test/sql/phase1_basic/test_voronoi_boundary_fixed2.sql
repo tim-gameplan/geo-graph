@@ -1,0 +1,238 @@
+-- Test for ST_VoronoiPolygons with a small set of boundary points
+-- This script ensures that each boundary node has a unique location
+-- Fixed to handle GeometryCollection and duplicate node assignments
+
+-- Create a test table for water obstacles
+DROP TABLE IF EXISTS test_water_obstacles;
+CREATE TABLE test_water_obstacles (
+    id SERIAL PRIMARY KEY,
+    geom GEOMETRY(POLYGON, 3857)
+);
+
+-- Insert a simple water obstacle (a square)
+INSERT INTO test_water_obstacles (geom)
+VALUES (
+    ST_SetSRID(
+        ST_MakePolygon(
+            ST_MakeLine(ARRAY[
+                ST_MakePoint(0, 0),
+                ST_MakePoint(100, 0),
+                ST_MakePoint(100, 100),
+                ST_MakePoint(0, 100),
+                ST_MakePoint(0, 0)
+            ])
+        ),
+        3857
+    )
+);
+
+-- Create a table for boundary nodes
+DROP TABLE IF EXISTS test_boundary_nodes;
+CREATE TABLE test_boundary_nodes (
+    node_id SERIAL PRIMARY KEY,
+    water_obstacle_id INTEGER,
+    point_order INTEGER,
+    geom GEOMETRY(POINT, 3857)
+);
+
+-- Extract points along the boundary at regular intervals
+-- Ensure each point has a unique location
+INSERT INTO test_boundary_nodes (water_obstacle_id, point_order, geom)
+SELECT 
+    id AS water_obstacle_id,
+    generate_series(1, 20) AS point_order,
+    -- Use ST_LineInterpolatePoint to get evenly spaced points along the boundary
+    ST_LineInterpolatePoint(
+        ST_ExteriorRing(geom),
+        (generate_series(1, 20) - 1) / 20.0
+    ) AS geom
+FROM 
+    test_water_obstacles;
+
+-- Create a table for terrain grid points
+DROP TABLE IF EXISTS test_terrain_grid_points;
+CREATE TABLE test_terrain_grid_points (
+    id SERIAL PRIMARY KEY,
+    hex_type TEXT,
+    geom GEOMETRY(POINT, 3857)
+);
+
+-- Insert a grid of terrain points
+INSERT INTO test_terrain_grid_points (hex_type, geom)
+SELECT 
+    'land' AS hex_type,
+    ST_SetSRID(ST_MakePoint(x, y), 3857) AS geom
+FROM 
+    generate_series(-100, 200, 50) AS x,
+    generate_series(-100, 200, 50) AS y
+WHERE 
+    NOT (x BETWEEN 0 AND 100 AND y BETWEEN 0 AND 100);
+
+-- Create a table for Voronoi cells
+DROP TABLE IF EXISTS test_voronoi_cells;
+CREATE TABLE test_voronoi_cells (
+    cell_id SERIAL PRIMARY KEY,  -- Changed from node_id to cell_id
+    node_id INTEGER,             -- Now just a reference, not a primary key
+    cell_geom GEOMETRY(GEOMETRY, 3857)
+);
+
+-- Generate Voronoi diagram
+DO $$
+DECLARE
+    points_collection GEOMETRY;
+    voronoi_polygons GEOMETRY;
+    study_area_envelope GEOMETRY;
+    voronoi_count INTEGER;
+BEGIN
+    -- Create a collection of points
+    SELECT ST_Collect(geom) INTO points_collection FROM test_boundary_nodes;
+    
+    -- Create a study area envelope with some padding
+    SELECT ST_Envelope(ST_Buffer(ST_Extent(geom), 200)) INTO study_area_envelope 
+    FROM test_boundary_nodes;
+    
+    -- Generate Voronoi polygons
+    SELECT ST_VoronoiPolygons(
+        points_collection,
+        0.0, -- tolerance
+        study_area_envelope -- envelope to clip the result
+    ) INTO voronoi_polygons;
+    
+    -- Debug: Check what type of geometry we got
+    RAISE NOTICE 'Voronoi geometry type: %', ST_GeometryType(voronoi_polygons);
+    
+    -- Insert the Voronoi polygons into the test_voronoi_cells table
+    WITH voronoi_dump AS (
+        SELECT 
+            (ST_Dump(voronoi_polygons)).geom AS cell_geom
+    ),
+    nearest_nodes AS (
+        SELECT 
+            vd.cell_geom,
+            (
+                SELECT node_id
+                FROM test_boundary_nodes
+                ORDER BY ST_Distance(geom, ST_PointOnSurface(vd.cell_geom))
+                LIMIT 1
+            ) AS node_id
+        FROM 
+            voronoi_dump vd
+    )
+    INSERT INTO test_voronoi_cells (node_id, cell_geom)
+    SELECT 
+        node_id,
+        cell_geom
+    FROM 
+        nearest_nodes;
+    
+    -- Get the count of Voronoi cells
+    SELECT COUNT(*) INTO voronoi_count FROM test_voronoi_cells;
+    
+    -- Log the results
+    RAISE NOTICE 'Generated % Voronoi cells', voronoi_count;
+END $$;
+
+-- Create a table for connection edges
+DROP TABLE IF EXISTS test_connection_edges;
+CREATE TABLE test_connection_edges (
+    edge_id SERIAL PRIMARY KEY,
+    source_id INTEGER,
+    target_id INTEGER,
+    geom GEOMETRY(LINESTRING, 3857),
+    cost FLOAT
+);
+
+-- Find terrain points that fall within each Voronoi cell
+INSERT INTO test_connection_edges (source_id, target_id, geom, cost)
+SELECT 
+    tgp.id AS source_id,
+    vc.node_id AS target_id,
+    ST_MakeLine(
+        tgp.geom,
+        (SELECT geom FROM test_boundary_nodes WHERE node_id = vc.node_id)
+    ) AS geom,
+    ST_Distance(
+        tgp.geom,
+        (SELECT geom FROM test_boundary_nodes WHERE node_id = vc.node_id)
+    ) AS cost
+FROM 
+    test_terrain_grid_points tgp
+JOIN 
+    test_voronoi_cells vc ON ST_Intersects(tgp.geom, vc.cell_geom)
+WHERE 
+    tgp.hex_type = 'land'
+    -- Ensure the connection doesn't cross through water obstacles
+    AND NOT EXISTS (
+        SELECT 1
+        FROM test_water_obstacles wo
+        WHERE ST_Crosses(
+            ST_MakeLine(
+                tgp.geom,
+                (SELECT geom FROM test_boundary_nodes WHERE node_id = vc.node_id)
+            ),
+            wo.geom
+        )
+    )
+    -- Limit the distance
+    AND ST_Distance(
+        tgp.geom,
+        (SELECT geom FROM test_boundary_nodes WHERE node_id = vc.node_id)
+    ) <= 200;
+
+-- Display the results
+SELECT 'Number of boundary nodes: ' || COUNT(*) FROM test_boundary_nodes;
+SELECT 'Number of terrain grid points: ' || COUNT(*) FROM test_terrain_grid_points;
+SELECT 'Number of Voronoi cells: ' || COUNT(*) FROM test_voronoi_cells;
+SELECT 'Number of connection edges: ' || COUNT(*) FROM test_connection_edges;
+
+-- Count how many Voronoi cells are assigned to each boundary node
+SELECT 
+    node_id,
+    COUNT(*) AS cell_count
+FROM 
+    test_voronoi_cells
+GROUP BY 
+    node_id
+ORDER BY 
+    node_id;
+
+-- Verify which boundary nodes are contained in each Voronoi cell
+SELECT 
+    vc.cell_id,
+    vc.node_id AS assigned_node_id,
+    bn.node_id AS contained_node_id
+FROM 
+    test_voronoi_cells vc
+JOIN 
+    test_boundary_nodes bn ON ST_Contains(vc.cell_geom, bn.geom)
+ORDER BY 
+    vc.cell_id, bn.node_id;
+
+-- Visualize the results (optional)
+SELECT 
+    'Boundary Nodes' AS layer,
+    node_id::TEXT AS id,
+    geom
+FROM 
+    test_boundary_nodes
+UNION ALL
+SELECT 
+    'Terrain Grid Points' AS layer,
+    id::TEXT AS id,
+    geom
+FROM 
+    test_terrain_grid_points
+UNION ALL
+SELECT 
+    'Voronoi Cells' AS layer,
+    cell_id::TEXT AS id,
+    ST_Boundary(cell_geom) AS geom
+FROM 
+    test_voronoi_cells
+UNION ALL
+SELECT 
+    'Connection Edges' AS layer,
+    edge_id::TEXT AS id,
+    geom
+FROM 
+    test_connection_edges;

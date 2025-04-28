@@ -11,23 +11,24 @@ The EPSG:3857 Terrain Graph Pipeline offers several approaches for generating te
 3. **Obstacle Boundary Approach**: Directly converts water obstacle polygons to graph elements
 4. **Hexagon Obstacle Boundary**: Combines hexagonal grid with precise water obstacle boundaries
 5. **Voronoi Obstacle Boundary**: Uses Voronoi diagrams for natural connections between terrain and water
-6. **Delaunay Triangulation** (Experimental): Uses Delaunay triangulation for terrain representation
-7. **Boundary Hexagon Layer**: Preserves hexagons at water boundaries for better connectivity
+6. **Reversed Voronoi Obstacle Boundary**: Uses reversed Voronoi approach for more natural connections
+7. **Delaunay Triangulation** (Experimental): Uses Delaunay triangulation for terrain representation
+8. **Boundary Hexagon Layer**: Preserves hexagons at water boundaries for better connectivity
 
 ## Feature Comparison
 
-| Feature | Standard Pipeline | Water Boundary Approach | Obstacle Boundary Approach | Hexagon Obstacle Boundary | Voronoi Obstacle Boundary | Delaunay Triangulation | Boundary Hexagon Layer |
-|---------|------------------|------------------------|---------------------------|--------------------------|--------------------------|------------------------|------------------------|
-| **Status** | Stable | Stable | Stable | Stable | Stable | Experimental | Stable |
-| **Terrain Representation** | Hexagonal Grid | Hexagonal Grid | Hexagonal Grid | Hexagonal Grid with Classification | Hexagonal Grid | Triangulation | Hexagonal Grid with Boundary Preservation |
-| **Water Representation** | Avoided Areas | Navigable Boundaries | Direct Boundary Conversion | Precise Boundaries | Voronoi Cells | Avoided Areas | Boundary Hexagons |
-| **Graph Connectivity** | Good | Better | Best | Best | Better | Good | Better |
-| **Performance** | Fast | Medium | Medium | Medium | Medium | Slow | Medium |
-| **Memory Usage** | Low | Medium | Medium | Medium | Medium | High | Medium |
-| **Natural Appearance** | Good | Good | Best | Best | Better | Best | Good |
-| **Edge Creation** | Improved Algorithm | Boundary-Based | Direct Conversion | Classification-Based | Voronoi-Based | Triangulation | Boundary Connections |
-| **White Space Issues** | Yes | No | No | No | No | Minimal | No |
-| **Connection Distribution** | Uneven | Uneven | Uneven | Even | Most Even | Even | Even |
+| Feature | Standard Pipeline | Water Boundary Approach | Obstacle Boundary Approach | Hexagon Obstacle Boundary | Voronoi Obstacle Boundary | Reversed Voronoi Obstacle Boundary | Delaunay Triangulation | Boundary Hexagon Layer |
+|---------|------------------|------------------------|---------------------------|--------------------------|--------------------------|-----------------------------------|------------------------|------------------------|
+| **Status** | Stable | Stable | Stable | Stable | Stable | Stable | Experimental | Stable |
+| **Terrain Representation** | Hexagonal Grid | Hexagonal Grid | Hexagonal Grid | Hexagonal Grid with Classification | Hexagonal Grid | Hexagonal Grid | Triangulation | Hexagonal Grid with Boundary Preservation |
+| **Water Representation** | Avoided Areas | Navigable Boundaries | Direct Boundary Conversion | Precise Boundaries | Voronoi Cells | Reversed Voronoi Cells | Avoided Areas | Boundary Hexagons |
+| **Graph Connectivity** | Good | Better | Best | Best | Better | Best | Good | Better |
+| **Performance** | Fast | Medium | Medium | Medium | Medium | Medium | Slow | Medium |
+| **Memory Usage** | Low | Medium | Medium | Medium | Medium | Medium | High | Medium |
+| **Natural Appearance** | Good | Good | Best | Best | Better | Best | Best | Good |
+| **Edge Creation** | Improved Algorithm | Boundary-Based | Direct Conversion | Classification-Based | Voronoi-Based | Reversed Voronoi-Based | Triangulation | Boundary Connections |
+| **White Space Issues** | Yes | No | No | No | No | No | Minimal | No |
+| **Connection Distribution** | Uneven | Uneven | Uneven | Even | Most Even | Most Even | Even | Even |
 
 ## Detailed Comparison
 
@@ -184,6 +185,43 @@ python epsg3857_pipeline/run_hexagon_obstacle_boundary_pipeline.py
 python epsg3857_pipeline/run_voronoi_obstacle_boundary_pipeline.py
 ```
 
+### Reversed Voronoi Obstacle Boundary
+
+**Description**: The Reversed Voronoi obstacle boundary approach flips the traditional Voronoi approach by creating Voronoi cells for boundary terrain points instead of boundary nodes. This "reversed" approach results in more natural connections and better distribution of connections across water boundaries.
+
+**Key Features**:
+- Reversed Voronoi partitioning (terrain points claim boundary nodes)
+- Most natural connection distribution between terrain and water
+- Robust handling of complex water boundaries
+- Chunked processing for large datasets
+- Fallback mechanisms for geometry error handling
+
+**Advantages**:
+- Most natural-looking connections between terrain and water
+- Better distribution of connections than standard Voronoi approach
+- More robust to geometry errors and complex water boundaries
+- Reduced clustering of connections at boundary nodes
+- Better performance with complex water boundaries
+- No "white space" issues
+
+**Limitations**:
+- Most complex implementation of all approaches
+- Requires robust geometry processing
+- Slightly slower than the standard approach
+- Requires careful parameter tuning for optimal results
+
+**When to Use**:
+- When most natural-looking connections are a priority
+- When dealing with complex water boundaries
+- When robust geometry processing is needed
+- When optimal connection distribution is critical
+- When preventing connection clustering is essential
+
+**Command**:
+```bash
+python epsg3857_pipeline/run_reversed_voronoi_obstacle_boundary_pipeline.py
+```
+
 ### Delaunay Triangulation (Experimental)
 
 **Description**: The Delaunay triangulation approach uses Delaunay triangulation for terrain grid generation, which provides a more natural terrain representation.
@@ -257,6 +295,7 @@ python epsg3857_pipeline/run_boundary_hexagon_pipeline.py
 | Obstacle Boundary Approach | Fast (< 1 min) | Medium (2-7 min) | Slow (10-20 min) |
 | Hexagon Obstacle Boundary | Fast (< 1 min) | Medium (2-7 min) | Slow (10-20 min) |
 | Voronoi Obstacle Boundary | Fast (< 1 min) | Medium (2-7 min) | Slow (10-20 min) |
+| Reversed Voronoi Obstacle Boundary | Fast (< 1 min) | Medium (2-7 min) | Slow (10-20 min) |
 | Delaunay Triangulation | Medium (1-3 min) | Slow (5-15 min) | Very Slow (20+ min) |
 | Boundary Hexagon Layer | Fast (< 1 min) | Medium (2-7 min) | Medium (7-15 min) |
 
@@ -271,6 +310,7 @@ python epsg3857_pipeline/run_boundary_hexagon_pipeline.py
 | Obstacle Boundary Approach | Low (< 1 GB) | Medium (1-3 GB) | High (3-6 GB) |
 | Hexagon Obstacle Boundary | Low (< 1 GB) | Medium (1-3 GB) | High (3-6 GB) |
 | Voronoi Obstacle Boundary | Low (< 1 GB) | Medium (1-3 GB) | High (3-6 GB) |
+| Reversed Voronoi Obstacle Boundary | Low (< 1 GB) | Medium (1-3 GB) | High (3-6 GB) |
 | Delaunay Triangulation | Medium (1-2 GB) | High (2-5 GB) | Very High (5+ GB) |
 | Boundary Hexagon Layer | Low (< 1 GB) | Medium (1-3 GB) | High (3-5 GB) |
 
@@ -286,9 +326,9 @@ python epsg3857_pipeline/run_boundary_hexagon_pipeline.py
 
 ### Navigation Systems
 
-**Recommended Approach**: Water Boundary Approach, Obstacle Boundary Approach, or Voronoi Obstacle Boundary
+**Recommended Approach**: Water Boundary Approach, Obstacle Boundary Approach, Voronoi Obstacle Boundary, or Reversed Voronoi Obstacle Boundary
 
-**Rationale**: Navigation systems require precise water boundary representation and optimal connectivity. The water boundary approach or obstacle boundary approach provides the best connectivity and most realistic representation of water boundaries. The Voronoi obstacle boundary approach is particularly useful for navigation systems that require evenly distributed connections to water boundaries.
+**Rationale**: Navigation systems require precise water boundary representation and optimal connectivity. The water boundary approach or obstacle boundary approach provides the best connectivity and most realistic representation of water boundaries. The Voronoi and Reversed Voronoi approaches are particularly useful for navigation systems that require evenly distributed connections to water boundaries, with the Reversed Voronoi approach providing the most natural-looking connections.
 
 ### Environmental Analysis
 
@@ -311,6 +351,7 @@ Each pipeline approach has its strengths and limitations. The choice of approach
 - **Obstacle Boundary Approach**: Best when clean boundary representation and optimal connectivity are required
 - **Hexagon Obstacle Boundary**: Best when natural terrain representation and precise water boundaries are needed
 - **Voronoi Obstacle Boundary**: Best when even distribution of connections to water boundaries is important
+- **Reversed Voronoi Obstacle Boundary**: Best when most natural-looking connections and robust geometry processing are needed
 - **Delaunay Triangulation**: Best when natural terrain representation is a priority (but still experimental)
 - **Boundary Hexagon Layer**: Best when "white space" issues need to be addressed
 

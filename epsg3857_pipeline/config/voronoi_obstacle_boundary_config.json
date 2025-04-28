@@ -34,6 +34,17 @@
     "voronoi_connection_limit": 1,
     "voronoi_tolerance": 10
   },
+  "voronoi_preprocessing": {
+    "tolerance": 0.1,
+    "envelope_expansion": 1000,
+    "add_jitter": true,
+    "jitter_amount": 0.01,
+    "enable_fallback": false,
+    "use_combined_approach": true,
+    "use_robust_voronoi": true,
+    "max_points_per_chunk": 1000,
+    "chunk_overlap": 50
+  },
   "environmental_conditions": {
     "default_speed": 5.0,
     "water_speed_factor": 0.2,

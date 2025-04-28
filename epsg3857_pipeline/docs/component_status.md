@@ -18,6 +18,7 @@ This document provides a reference for the status of each component in the EPSG:
 | Obstacle Boundary Approach | **STABLE** | 2025-04-24 | Directly converts water obstacle polygons to graph elements | None | N/A |
 | Hexagon Obstacle Boundary | **STABLE** | 2025-04-25 | Combines hexagonal grid with precise water obstacle boundaries | None | N/A |
 | Voronoi Obstacle Boundary | **STABLE** | 2025-04-26 | Uses Voronoi diagrams for natural connections between terrain and water | None | N/A |
+| Reversed Voronoi Obstacle Boundary | **STABLE** | 2025-04-27 | Uses reversed Voronoi approach for more natural connections | None | N/A |
 | Delaunay Triangulation | **EXPERIMENTAL** | 2025-04-22 | Uses Delaunay triangulation for terrain representation | Performance issues with large datasets | Standard Pipeline |
 | Boundary Hexagon Layer | **STABLE** | 2025-04-25 | Preserves hexagons at water boundaries for better connectivity | None | N/A |
 
@@ -37,10 +38,13 @@ This document provides a reference for the status of each component in the EPSG:
 
 | Component | Status | Last Updated | Description | Known Issues | Recommended Alternative |
 |-----------|--------|--------------|-------------|--------------|------------------------|
+| run_voronoi_connection_test.py | **STABLE** | 2025-04-28 | Runs and visualizes Voronoi connection strategies test | None | N/A |
+| run_voronoi_test.sh | **STABLE** | 2025-04-28 | Shell script wrapper for Voronoi connection test | None | N/A |
 | run_epsg3857_pipeline.py | **STABLE** | 2025-04-23 | Main pipeline runner | None | N/A |
 | run_obstacle_boundary_pipeline.py | **STABLE** | 2025-04-24 | Obstacle boundary pipeline runner | None | N/A |
 | run_hexagon_obstacle_boundary_pipeline.py | **STABLE** | 2025-04-25 | Hexagon obstacle boundary pipeline runner | None | N/A |
 | run_voronoi_obstacle_boundary_pipeline.py | **STABLE** | 2025-04-26 | Voronoi obstacle boundary pipeline runner | None | N/A |
+| run_reversed_voronoi_obstacle_boundary_pipeline.py | **STABLE** | 2025-04-27 | Reversed Voronoi obstacle boundary pipeline runner | None | N/A |
 | import_osm_data.py | **STABLE** | 2025-04-24 | Imports OSM data into the database | None | N/A |
 | export_slice.py | **STABLE** | 2025-04-23 | Exports a graph slice | None | N/A |
 | visualize.py | **STABLE** | 2025-04-23 | Visualizes the graph | None | N/A |
@@ -59,6 +63,7 @@ This document provides a reference for the status of each component in the EPSG:
 
 | Component | Status | Last Updated | Description | Known Issues | Recommended Alternative |
 |-----------|--------|--------------|-------------|--------------|------------------------|
+| voronoi_connection_test.sql | **STABLE** | 2025-04-28 | Tests different connection strategies for water boundaries | None | N/A |
 | 01_extract_water_features_3857.sql | **STABLE** | 2025-04-23 | Extracts water features | None | N/A |
 | 02_create_water_buffers_3857.sql | **STABLE** | 2025-04-23 | Creates water buffers | None | N/A |
 | 03_dissolve_water_buffers_3857.sql | **STABLE** | 2025-04-23 | Dissolves water buffers | Memory issues with large datasets | N/A |
@@ -76,6 +81,7 @@ This document provides a reference for the status of each component in the EPSG:
 | create_obstacle_boundary_graph.sql | **STABLE** | 2025-04-24 | Creates obstacle boundary graph | None | N/A |
 | create_hexagon_obstacle_boundary_graph.sql | **STABLE** | 2025-04-25 | Creates hexagon obstacle boundary graph | None | N/A |
 | create_voronoi_obstacle_boundary_graph.sql | **STABLE** | 2025-04-26 | Creates Voronoi obstacle boundary graph | None | N/A |
+| create_reversed_voronoi_obstacle_boundary_graph.sql | **STABLE** | 2025-04-27 | Creates Reversed Voronoi obstacle boundary graph | None | N/A |
 
 ## Configuration Files
 
@@ -112,6 +118,8 @@ This document provides a reference for the status of each component in the EPSG:
 
 | Component | Status | Last Updated | Description | Known Issues | Recommended Alternative |
 |-----------|--------|--------------|-------------|--------------|------------------------|
+| voronoi_connection_test_README.md | **STABLE** | 2025-04-28 | User guide for Voronoi connection strategies test | None | N/A |
+| voronoi_connection_strategies_summary.md | **STABLE** | 2025-04-28 | Comprehensive overview of connection strategies | None | N/A |
 | README.md | **STABLE** | 2025-04-26 | Main project documentation | None | N/A |
 | database_schema.md | **STABLE** | 2025-04-23 | Database schema documentation | None | N/A |
 | project_organization.md | **STABLE** | 2025-04-23 | Project structure overview | None | N/A |
@@ -120,8 +128,9 @@ This document provides a reference for the status of each component in the EPSG:
 | direct_water_boundary_conversion.md | **STABLE** | 2025-04-24 | Documentation of direct water boundary conversion | None | N/A |
 | hexagon_obstacle_boundary_pipeline.md | **STABLE** | 2025-04-25 | Documentation of hexagon obstacle boundary approach | None | N/A |
 | voronoi_connection_strategy.md | **STABLE** | 2025-04-26 | Documentation of Voronoi-based connection strategy | None | N/A |
+| reversed_voronoi_connection_strategy.md | **STABLE** | 2025-04-27 | Documentation of Reversed Voronoi-based connection strategy | None | N/A |
 | boundary_hexagon_layer_implementation_plan.md | **STABLE** | 2025-04-25 | Documentation of boundary hexagon layer implementation | None | N/A |
 | pipeline_comparison.md | **STABLE** | 2025-04-26 | Comparison of different pipeline approaches | None | N/A |
 | worklog.md | **STABLE** | 2025-04-26 | Development worklog | None | N/A |
 | test_plan.md | **STABLE** | 2025-04-22 | Test plan | None | N/A |
-| component_status.md | **STABLE** | 2025-04-26 | Component status documentation | None | N/A |
+| component_status.md | **STABLE** | 2025-04-28 | Component status documentation | None | N/A |

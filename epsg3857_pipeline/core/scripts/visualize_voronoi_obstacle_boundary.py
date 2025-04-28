@@ -217,7 +217,6 @@ def visualize_voronoi_obstacle_boundary(container_name='geo-graph-db-1', output=
     if show_voronoi:
         voronoi_cells_query = """
         SELECT 
-            cell_id,
             node_id,
             ST_AsText(cell_geom) AS geom
         FROM 

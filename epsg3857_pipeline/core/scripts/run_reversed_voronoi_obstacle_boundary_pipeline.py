@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-Voronoi Obstacle Boundary Pipeline
+Reversed Voronoi Obstacle Boundary Pipeline
 
 This script runs a pipeline that:
 1. Creates a hexagonal terrain grid that includes water boundaries
 2. Uses the original obstacle boundary approach to create water boundary nodes and edges
-3. Generates Voronoi cells for water boundary nodes
-4. Connects the terrain grid to the water boundary nodes using Voronoi partitioning
+3. Generates Voronoi cells for boundary terrain points (instead of boundary nodes)
+4. Connects the terrain grid to the water boundary nodes using reversed Voronoi partitioning
 5. Creates a unified graph for navigation
 
-This approach uses Voronoi diagrams to create more natural connections between
-terrain and water obstacles, ensuring better coverage and more intuitive navigation.
+The "reversed" approach creates Voronoi cells for boundary terrain points instead of boundary nodes,
+which can lead to more natural connections and better distribution of connections across the water boundary.
 """
 
 import os
@@ -30,7 +30,7 @@ from core.utils.logging_utils import setup_logger
 from core.utils.voronoi_utils import create_voronoi_preprocessing_function, apply_voronoi_preprocessing_to_pipeline
 
 # Set up logging
-logger = setup_logger('voronoi_obstacle_boundary_pipeline')
+logger = setup_logger('reversed_voronoi_obstacle_boundary_pipeline')
 
 def run_sql_file(sql_file, params, container_name='geo-graph-db-1', verbose=False):
     """
@@ -210,7 +210,7 @@ def setup_database_connection(container_name='geo-graph-db-1'):
 
 def run_pipeline(config_file, sql_dir, container_name='geo-graph-db-1', verbose=False, use_robust_voronoi=True):
     """
-    Run the Voronoi obstacle boundary pipeline.
+    Run the Reversed Voronoi obstacle boundary pipeline.
 
     Args:
         config_file (str): Path to the configuration file
@@ -306,20 +306,20 @@ def run_pipeline(config_file, sql_dir, container_name='geo-graph-db-1', verbose=
             logger.error(f"Failed to run SQL file: {sql_file}")
             return False
     
-    # Run the Voronoi obstacle boundary graph creation
-    voronoi_boundary_sql = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'obstacle_boundary', 'create_voronoi_obstacle_boundary_graph.sql')
-    if not run_sql_file(voronoi_boundary_sql, params, container_name, verbose):
-        logger.error(f"Failed to run Voronoi obstacle boundary graph creation")
+    # Run the Reversed Voronoi obstacle boundary graph creation
+    reversed_voronoi_boundary_sql = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'obstacle_boundary', 'create_reversed_voronoi_obstacle_boundary_graph.sql')
+    if not run_sql_file(reversed_voronoi_boundary_sql, params, container_name, verbose):
+        logger.error(f"Failed to run Reversed Voronoi obstacle boundary graph creation")
         return False
     
-    logger.info("✅ Voronoi obstacle boundary pipeline completed successfully")
+    logger.info("✅ Reversed Voronoi obstacle boundary pipeline completed successfully")
     return True
 
 def main():
     """
     Main function to parse arguments and run the pipeline.
     """
-    parser = argparse.ArgumentParser(description='Run the Voronoi obstacle boundary pipeline')
+    parser = argparse.ArgumentParser(description='Run the Reversed Voronoi obstacle boundary pipeline')
     parser.add_argument('--config', default='epsg3857_pipeline/config/voronoi_obstacle_boundary_config.json', help='Path to the configuration file')
     parser.add_argument('--sql-dir', default='epsg3857_pipeline/core/sql', help='Path to the directory containing SQL files')
     parser.add_argument('--container', default='geo-graph-db-1', help='Name of the Docker container')

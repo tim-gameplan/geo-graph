@@ -359,6 +359,32 @@ python epsg3857_pipeline/tools/database/reset_all_tables.py
 ./epsg3857_pipeline/run_tests.sh --verbose
 ```
 
+### Voronoi Connection Strategies Test Suite
+
+The project includes a dedicated test suite for comparing different connection strategies for connecting terrain grid points to water obstacle boundaries:
+
+```bash
+# Run the Voronoi connection strategies test
+./run_voronoi_test.sh
+
+# Show Voronoi cells in the visualization
+./run_voronoi_test.sh --show-cells
+
+# Skip running the SQL script (if you've already run it)
+./run_voronoi_test.sh --skip-sql
+
+# For more options
+./run_voronoi_test.sh --help
+```
+
+This test suite compares four different connection strategies:
+1. **Simple Nearest Neighbor**: Basic approach connecting to the closest boundary node
+2. **Line-to-Point Connection**: Creates direct connections to the boundary
+3. **Standard Voronoi Connection**: Uses Voronoi cells for boundary nodes
+4. **Reversed Voronoi Connection**: Creates Voronoi cells for terrain points
+
+The test generates visualizations in the `visualizations` directory showing the different strategies side by side and analyzing the distribution of connections.
+
 ## Troubleshooting
 
 ### Common Issues
@@ -417,6 +443,8 @@ For more detailed documentation, see:
 - [Line-to-Point Connection Strategy](./docs/line_to_point_connection_strategy.md) - Documentation of the enhanced connection strategy for water boundaries
 - [Hexagon Obstacle Boundary Pipeline](./docs/hexagon_obstacle_boundary_pipeline.md) - Detailed documentation of the hexagon obstacle boundary approach
 - [Voronoi Connection Strategy](./docs/voronoi_connection_strategy.md) - Documentation of the Voronoi-based connection strategy for water boundaries
+- [Reversed Voronoi Connection Strategy](./docs/reversed_voronoi_connection_strategy.md) - Documentation of the Reversed Voronoi-based connection strategy
+- [Voronoi Connection Strategies Summary](./voronoi_connection_strategies_summary.md) - Comprehensive overview of different connection strategies
 - [Pipeline Comparison Scripts](./docs/pipeline_comparison_scripts.md) - Comprehensive reference for running different pipelines
 - [Development Worklog](./worklog.md) - Track development progress, issues, and solutions
 - [Test Plan](./test_plan.md) - Comprehensive testing strategy and test cases
