@@ -20,7 +20,7 @@ This document provides a reference for the status of each component in the EPSG:
 | Voronoi Obstacle Boundary | **STABLE** | 2025-04-26 | Uses Voronoi diagrams for natural connections between terrain and water | None | N/A |
 | Reversed Voronoi Obstacle Boundary | **STABLE** | 2025-04-27 | Uses reversed Voronoi approach for more natural connections | None | N/A |
 | Delaunay Triangulation | **EXPERIMENTAL** | 2025-04-22 | Uses Delaunay triangulation for terrain representation | Performance issues with large datasets | Standard Pipeline |
-| Boundary Hexagon Layer | **STABLE** | 2025-04-25 | Preserves hexagons at water boundaries for better connectivity | None | N/A |
+| Boundary Hexagon Layer | **STABLE** | 2025-04-28 | Preserves hexagons at water boundaries for better connectivity with enhanced bridge nodes and directional filtering | None | N/A |
 
 ## Core Components
 
@@ -56,7 +56,7 @@ This document provides a reference for the status of each component in the EPSG:
 | run_water_obstacle_pipeline_improved.py | **STABLE** | 2025-04-23 | Improved water obstacle pipeline | None | N/A |
 | run_water_obstacle_pipeline_boundary.py | **STABLE** | 2025-04-23 | Water boundary approach pipeline | None | N/A |
 | run_water_obstacle_pipeline_boundary_hexagon.py | **STABLE** | 2025-04-25 | Boundary hexagon layer pipeline | None | N/A |
-| run_boundary_hexagon_pipeline.py | **STABLE** | 2025-04-25 | Boundary hexagon layer pipeline wrapper | None | N/A |
+| run_boundary_hexagon_pipeline.py | **STABLE** | 2025-04-28 | Boundary hexagon layer pipeline wrapper with integrated visualization | None | N/A |
 | run_water_obstacle_pipeline_delaunay.py | **EXPERIMENTAL** | 2025-04-22 | Delaunay triangulation pipeline | Performance issues with large datasets | run_water_obstacle_pipeline_improved.py |
 
 ## SQL Files
@@ -74,8 +74,8 @@ This document provides a reference for the status of each component in the EPSG:
 | 06_create_water_edges_improved_3857.sql | **STABLE** | 2025-04-23 | Improved water edge creation | None | N/A |
 | 06_create_water_boundary_edges_3857.sql | **STABLE** | 2025-04-23 | Water boundary edge creation | None | N/A |
 | 04_create_terrain_grid_boundary_hexagon.sql | **STABLE** | 2025-04-25 | Creates terrain grid with boundary hexagons | None | N/A |
-| 05_create_boundary_nodes_3857.sql | **STABLE** | 2025-04-25 | Creates boundary nodes | None | N/A |
-| 06_create_boundary_edges_3857.sql | **STABLE** | 2025-04-25 | Creates boundary edges | None | N/A |
+| 05_create_boundary_nodes_3857.sql | **STABLE** | 2025-04-28 | Creates boundary nodes with enhanced water boundary and bridge nodes | None | N/A |
+| 06_create_boundary_edges_3857.sql | **STABLE** | 2025-04-28 | Creates boundary edges with directional filtering and bridge connections | None | N/A |
 | 07_create_unified_boundary_graph_3857.sql | **STABLE** | 2025-04-25 | Creates unified boundary graph | None | N/A |
 | 07_create_environmental_tables_3857.sql | **STABLE** | 2025-04-23 | Creates environmental tables | None | N/A |
 | create_obstacle_boundary_graph.sql | **STABLE** | 2025-04-24 | Creates obstacle boundary graph | None | N/A |
@@ -111,7 +111,7 @@ This document provides a reference for the status of each component in the EPSG:
 | visualize_hexagon_obstacle_boundary.py | **STABLE** | 2025-04-25 | Visualizes the hexagon obstacle boundary graph | None | N/A |
 | visualize_hexagon_obstacle_boundary_components.py | **STABLE** | 2025-04-25 | Visualizes the hexagon obstacle boundary components | None | N/A |
 | visualize_voronoi_obstacle_boundary.py | **STABLE** | 2025-04-26 | Visualizes the Voronoi obstacle boundary graph | None | N/A |
-| visualize_boundary_hexagon_layer.py | **STABLE** | 2025-04-25 | Visualizes the boundary hexagon layer graph | None | N/A |
+| visualize_boundary_hexagon_layer.py | **STABLE** | 2025-04-28 | Visualizes the boundary hexagon layer graph with enhanced node and edge types | None | N/A |
 | visualize_delaunay_triangulation.py | **EXPERIMENTAL** | 2025-04-22 | Visualizes Delaunay triangulation | None | N/A |
 
 ## Documentation

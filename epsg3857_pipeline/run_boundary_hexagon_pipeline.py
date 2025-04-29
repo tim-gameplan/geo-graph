@@ -10,6 +10,7 @@ for better connectivity.
 import os
 import sys
 import argparse
+import subprocess
 from pathlib import Path
 
 # Add the parent directory to the path so we can import from core packages
@@ -17,6 +18,7 @@ sys.path.append(str(Path(__file__).parent))
 
 # Import our core script
 from core.scripts.run_water_obstacle_pipeline_boundary_hexagon import main as core_main
+from core.scripts.visualize_boundary_hexagon_layer import visualize_boundary_hexagon_layer
 
 def main():
     """
@@ -33,6 +35,10 @@ def main():
                         help='Print verbose output')
     parser.add_argument('--reset', action='store_true',
                         help='Reset the database before running the pipeline')
+    parser.add_argument('--visualize', action='store_true',
+                        help='Generate a visualization after running the pipeline')
+    parser.add_argument('--output', type=str,
+                        help='Path to save the visualization (only used with --visualize)')
     
     args = parser.parse_args()
     
@@ -46,8 +52,37 @@ def main():
             return 1
         print("✅ Database reset completed successfully")
     
+    # Save original sys.argv
+    original_argv = sys.argv.copy()
+    
+    # Modify sys.argv to only include arguments that core_main expects
+    sys.argv = [sys.argv[0]]
+    if args.config:
+        sys.argv.extend(['--config', args.config])
+    if args.sql_dir:
+        sys.argv.extend(['--sql-dir', args.sql_dir])
+    if args.container:
+        sys.argv.extend(['--container', args.container])
+    if args.verbose:
+        sys.argv.append('--verbose')
+    
     # Run the pipeline
-    return core_main()
+    try:
+        result = core_main()
+    finally:
+        # Restore original sys.argv
+        sys.argv = original_argv
+    
+    # Generate visualization if requested
+    if args.visualize and result == 0:
+        print("Generating visualization...")
+        vis_success = visualize_boundary_hexagon_layer(args.output, args.container, args.verbose)
+        if vis_success:
+            print("✅ Visualization generated successfully")
+        else:
+            print("❌ Visualization generation failed")
+    
+    return result
 
 if __name__ == '__main__':
     sys.exit(main())

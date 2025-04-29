@@ -21,7 +21,12 @@
   "boundary_hexagon_layer": {
     "boundary_node_spacing": 100,
     "boundary_edge_max_length": 200,
-    "water_speed_factor": 0.2
+    "water_speed_factor": 0.2,
+    "boundary_extension_distance": 50,
+    "max_bridge_distance": 300,
+    "max_bridge_length": 150,
+    "direction_count": 8,
+    "max_connections_per_direction": 2
   },
   "water_crossing": {
     "connectivity_check_enabled": true,

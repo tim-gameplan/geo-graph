@@ -21,8 +21,8 @@ The EPSG:3857 Terrain Graph Pipeline offers several approaches for generating te
 |---------|------------------|------------------------|---------------------------|--------------------------|--------------------------|-----------------------------------|------------------------|------------------------|
 | **Status** | Stable | Stable | Stable | Stable | Stable | Stable | Experimental | Stable |
 | **Terrain Representation** | Hexagonal Grid | Hexagonal Grid | Hexagonal Grid | Hexagonal Grid with Classification | Hexagonal Grid | Hexagonal Grid | Triangulation | Hexagonal Grid with Boundary Preservation |
-| **Water Representation** | Avoided Areas | Navigable Boundaries | Direct Boundary Conversion | Precise Boundaries | Voronoi Cells | Reversed Voronoi Cells | Avoided Areas | Boundary Hexagons |
-| **Graph Connectivity** | Good | Better | Best | Best | Better | Best | Good | Better |
+| **Water Representation** | Avoided Areas | Navigable Boundaries | Direct Boundary Conversion | Precise Boundaries | Voronoi Cells | Reversed Voronoi Cells | Avoided Areas | Boundary Hexagons with Bridge Nodes |
+| **Graph Connectivity** | Good | Better | Best | Best | Better | Best | Good | Best |
 | **Performance** | Fast | Medium | Medium | Medium | Medium | Medium | Slow | Medium |
 | **Memory Usage** | Low | Medium | Medium | Medium | Medium | Medium | High | Medium |
 | **Natural Appearance** | Good | Good | Best | Best | Better | Best | Best | Good |
@@ -260,15 +260,20 @@ python epsg3857_pipeline/run_epsg3857_pipeline.py --mode delaunay
 - Preserves hexagons at water boundaries
 - Creates nodes on the land portion of boundary hexagons
 - Creates water boundary nodes along the intersection of boundary hexagons and water obstacles
+- Creates additional water boundary nodes in water hexagons for improved connectivity
+- Creates bridge nodes at strategic locations to connect across narrow water obstacles
+- Implements directional filtering for more natural edge creation
 - Connects boundary nodes to both terrain and water boundary nodes
-- Creates five types of edges: land-land, land-boundary, boundary-boundary, boundary-water, and water-boundary
+- Creates seven types of edges: land-land, land-boundary, boundary-boundary, boundary-water, water-boundary, water-boundary-to-boundary, and bridge-to-boundary
 
 **Advantages**:
 - Fills the "white space" between terrain and water
-- Better connectivity than the standard approach
+- Best connectivity with bridge nodes and water boundary extensions
 - More natural representation of water boundaries
 - Maintains the hexagonal grid structure for consistency
 - Ensures optimal pathfinding around water obstacles
+- Directional filtering creates more natural-looking connections
+- Bridge nodes provide strategic crossings at narrow water obstacles
 
 **Limitations**:
 - Creates more nodes and edges than the standard approach
@@ -277,9 +282,11 @@ python epsg3857_pipeline/run_epsg3857_pipeline.py --mode delaunay
 
 **When to Use**:
 - When "white space" issues need to be addressed
-- When better connectivity is needed
+- When optimal connectivity across water obstacles is needed
 - When a balance between precision and performance is required
 - When natural movement patterns around water obstacles are important
+- When strategic crossings at narrow water obstacles are needed
+- When directional filtering for more natural connections is desired
 
 **Command**:
 ```bash
@@ -340,7 +347,7 @@ python epsg3857_pipeline/run_boundary_hexagon_pipeline.py
 
 **Recommended Approach**: Boundary Hexagon Layer
 
-**Rationale**: Game development often requires a balance between natural appearance and performance. The boundary hexagon layer approach provides a good balance between precision and performance, with no "white space" issues.
+**Rationale**: Game development often requires a balance between natural appearance and performance. The boundary hexagon layer approach provides a good balance between precision and performance, with no "white space" issues. The bridge nodes and directional filtering features are particularly useful for creating natural-looking pathfinding around water obstacles in games.
 
 ## Conclusion
 
@@ -353,6 +360,6 @@ Each pipeline approach has its strengths and limitations. The choice of approach
 - **Voronoi Obstacle Boundary**: Best when even distribution of connections to water boundaries is important
 - **Reversed Voronoi Obstacle Boundary**: Best when most natural-looking connections and robust geometry processing are needed
 - **Delaunay Triangulation**: Best when natural terrain representation is a priority (but still experimental)
-- **Boundary Hexagon Layer**: Best when "white space" issues need to be addressed
+- **Boundary Hexagon Layer**: Best when "white space" issues need to be addressed and optimal connectivity with bridge nodes is required
 
 For most use cases, the standard pipeline with improved water edge creation is recommended as it provides a good balance between performance, connectivity, and stability. However, for more specialized needs, the Hexagon Obstacle Boundary or Voronoi Obstacle Boundary approaches may provide better results, especially for applications requiring natural movement patterns around water obstacles or evenly distributed connections to water boundaries.

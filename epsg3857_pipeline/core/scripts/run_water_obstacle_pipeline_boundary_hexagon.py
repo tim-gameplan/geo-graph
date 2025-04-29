@@ -141,6 +141,11 @@ def run_pipeline(config_path, sql_dir, container_name='geo-graph-db-1', verbose=
         params['boundary_edge_max_length'] = boundary_hexagon_layer.get('boundary_edge_max_length', 200)
         params['water_speed_factor'] = boundary_hexagon_layer.get('water_speed_factor', 0.2)
         params['max_edge_length'] = config_loader.config.get('terrain_grid', {}).get('max_edge_length', 500)
+        params['boundary_extension_distance'] = boundary_hexagon_layer.get('boundary_extension_distance', 50)
+        params['max_bridge_distance'] = boundary_hexagon_layer.get('max_bridge_distance', 300)
+        params['max_bridge_length'] = boundary_hexagon_layer.get('max_bridge_length', 150)
+        params['direction_count'] = boundary_hexagon_layer.get('direction_count', 8)
+        params['max_connections_per_direction'] = boundary_hexagon_layer.get('max_connections_per_direction', 2)
         
         # Run SQL scripts
         for script in sql_scripts:

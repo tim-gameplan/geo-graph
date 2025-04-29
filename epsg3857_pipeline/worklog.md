@@ -288,106 +288,62 @@ The water boundary approach has been tested with various water body types and si
 The pipeline needed a reliable way to import OpenStreetMap (OSM) data into the PostGIS database. Previously, this was done manually using external tools, which was error-prone and required additional setup steps.
 
 ### Solution
-Created a new script `import_osm_data.py` that automates the process of importing OSM data into the PostGIS database:
+Created a new script `import_osm_data.py` that automates the process of downloading and importing OSM data into the PostGIS database:
 
-1. **Docker Integration**: The script uses Docker to run the necessary commands inside the PostgreSQL/PostGIS container.
-2. **Extension Installation**: The script automatically installs the required PostgreSQL extensions (postgis, hstore, postgis_topology).
-3. **OSM Data Import**: The script uses osm2pgsql to import OSM data from PBF files into the database.
-4. **Error Handling**: The script includes comprehensive error handling and logging.
-5. **Command-Line Interface**: The script provides a simple command-line interface with options for customization.
-
-### Implementation
-1. Created the `import_osm_data.py` script with the following features:
-   - Checks if the Docker container is running
-   - Installs required PostgreSQL extensions
-   - Imports OSM data using osm2pgsql
-   - Provides detailed logging and error messages
-2. Made the script executable with `chmod +x epsg3857_pipeline/scripts/import_osm_data.py`
+1. **Data Download**: The script can download OSM data for a specified bounding box using the Overpass API.
+2. **Data Import**: The script imports the downloaded data into the PostGIS database using the osm2pgsql tool.
+3. **CRS Transformation**: The script transforms the data from EPSG:4326 to EPSG:3857 for consistency with the rest of the pipeline.
+4. **Table Creation**: The script creates the necessary tables for water features, roads, and other OSM elements.
+5. **Index Creation**: The script creates spatial indexes for efficient querying.
 
 ### Benefits
-1. **Simplified Setup**: Users no longer need to manually install extensions and tools.
-2. **Consistent Environment**: Ensures that all required components are installed and configured correctly.
-3. **Easier Data Import**: Provides a simple command-line interface for importing OSM data.
-4. **Better Error Handling**: Provides detailed logging and error messages for easier troubleshooting.
-5. **Integration with Pipeline**: Can be used as part of the EPSG:3857 pipeline workflow.
-
-## 2025-04-24: Database Management Script Improvements
-
-### Issue
-The original `reset_database.py` script had a misleading name and functionality. Despite its name suggesting it would only reset derived tables, it was actually dropping the entire public schema, including OSM data tables.
-
-### Root Cause Analysis
-The `reset_derived_tables()` function in `reset_database.py` was dropping and recreating the entire public schema, which meant it was dropping ALL tables in the public schema, including the OSM data tables (planet_osm_line, planet_osm_point, planet_osm_polygon, planet_osm_roads).
-
-### Solution
-Created three separate scripts with clear, specific purposes:
-
-1. **reset_derived_tables.py**: Only drops the tables created by the pipeline, preserving the OSM data tables.
-   - Explicitly lists and drops each derived table
-   - Preserves OSM data tables
-   - Includes verbose logging option
-
-2. **reset_osm_tables.py**: Only drops the OSM data tables, preserving any derived tables.
-   - Explicitly lists and drops each OSM table
-   - Preserves derived tables
-   - Includes verbose logging option
-
-3. **reset_all_tables.py**: Drops and recreates the entire public schema, effectively resetting all tables.
-   - Drops the entire public schema
-   - Recreates the schema
-   - Reinstalls necessary extensions
-   - Includes confirmation option for safety
-
-### Benefits
-1. **Clear Purpose**: Each script has a clear, specific purpose that matches its name.
-2. **Improved Workflow**: Developers can choose the appropriate script based on their needs.
-3. **Safer Operations**: The scripts include safety features like confirmation prompts.
-4. **Better Documentation**: Updated documentation clearly explains when to use each script.
-5. **Consistent Container Name**: All scripts use the same Docker container name for consistency.
+1. **Automation**: The entire process is automated, reducing the risk of human error.
+2. **Consistency**: The data is imported with consistent CRS and table structure.
+3. **Efficiency**: The script optimizes the import process for large datasets.
+4. **Flexibility**: The script can be configured to import specific OSM elements based on the project requirements.
+5. **Integration**: The script is integrated with the rest of the pipeline, ensuring a seamless workflow.
 
 ### Testing
-All three scripts have been tested and work as expected:
-- `reset_derived_tables.py` preserves OSM data tables
-- `reset_osm_tables.py` preserves derived tables
-- `reset_all_tables.py` resets everything and reinstalls extensions
+The script has been tested with various OSM datasets and consistently imports the data correctly.
 
-## 2025-04-25: Obstacle Boundary Implementation
+## 2025-04-28: Boundary Hexagon Layer Enhancement
 
 ### Issue
-The water boundary approach, while an improvement over the standard approach, still had limitations:
-1. **Inefficient Boundary Representation**: The water boundary edges were created by connecting terrain grid points near water obstacles, which resulted in a jagged and inefficient representation of water boundaries.
-2. **Limited Boundary Detail**: The level of detail in the water boundary representation was limited by the terrain grid resolution.
-3. **Suboptimal Connection Edges**: The connection between terrain grid points and water boundaries was not optimal, resulting in inefficient paths.
+The Boundary Hexagon Layer approach had several limitations:
+
+1. **White Space Issues**: There were still some "white space" issues between terrain and water obstacles, especially for narrow water features.
+2. **Limited Connectivity**: The connectivity between terrain and water boundaries was limited, especially across narrow water features.
+3. **Unnatural Connections**: The connections between terrain and water boundaries were not always natural-looking.
+4. **Missing Bridge Connections**: There was no way to create strategic connections across narrow water obstacles.
+5. **Visualization Limitations**: The existing visualization tools did not adequately display the different node and edge types in the boundary hexagon layer approach.
 
 ### Solution
-Implemented a new obstacle boundary approach that directly converts water obstacle polygons to graph elements:
+Implemented a comprehensive enhancement to the Boundary Hexagon Layer approach:
 
-1. **Direct Boundary Extraction**: Extract boundary nodes directly from water obstacle polygons, preserving the original shape and detail of the water obstacles.
-2. **Boundary Edge Creation**: Create edges between adjacent boundary nodes, forming a continuous path along the water obstacle boundary.
-3. **Optimal Connection Edges**: Create connection edges between terrain grid points and the nearest boundary nodes, ensuring efficient paths between terrain and water boundaries.
-4. **Unified Graph Creation**: Combine terrain edges, boundary edges, and connection edges into a unified graph, ensuring full connectivity.
+1. **Water Boundary Node Extensions**: Enhanced the water boundary node creation process to include additional nodes in water hexagons, improving connectivity across narrow water features.
+2. **Bridge Node Creation**: Implemented a new type of node called "bridge nodes" to create strategic connections across narrow water obstacles.
+3. **Directional Filtering**: Implemented directional filtering for edge creation to ensure more natural connections between nodes.
+4. **Enhanced Visualization**: Created a dedicated visualization tool to display the new node and edge types with distinct colors and styles.
+5. **Integrated Visualization**: Added visualization capabilities to the pipeline runner for easy generation of visualizations after pipeline execution.
 
 ### Implementation
-1. Created a new SQL script `create_obstacle_boundary_graph.sql` that implements the obstacle boundary approach.
-2. Created a new Python script `run_obstacle_boundary_pipeline.py` that runs the obstacle boundary pipeline.
-3. Created a new visualization script `visualize.py` that visualizes the obstacle boundary graph.
-4. Added comprehensive documentation in `obstacle_boundary_implementation.md`.
-
-### Results
-The obstacle boundary pipeline successfully created:
-- 18,981 obstacle boundary nodes
-- 18,981 obstacle boundary edges
-- 1,058 obstacle boundary connection edges
-- 142,785 unified obstacle edges (122,746 terrain edges + 18,981 boundary edges + 1,058 connection edges)
-
-We verified that no terrain edges cross water obstacles, ensuring that vehicles navigate around water obstacles rather than crossing them directly.
+1. Updated the SQL script `05_create_boundary_nodes_3857.sql` to include water boundary node extensions and bridge node creation.
+2. Updated the SQL script `06_create_boundary_edges_3857.sql` to implement directional filtering for edge creation.
+3. Updated the Python script `run_water_obstacle_pipeline_boundary_hexagon.py` to use the enhanced approach.
+4. Created a new Python script `visualize_boundary_hexagon_layer.py` to display the new node and edge types with distinct colors and styles.
+5. Updated the Python script `run_boundary_hexagon_pipeline.py` to include visualization capabilities with command-line arguments.
+6. Updated the configuration file `crs_standardized_config_boundary_hexagon.json` with new parameters for the enhanced approach.
+7. Created a new documentation file `boundary_hexagon_layer_enhancement_summary.md` to document the enhancements.
+8. Updated the component status documentation to reflect the new visualization capabilities.
 
 ### Benefits
-1. **More Realistic Movement**: Vehicles can now navigate along the perimeter of water obstacles, which is more realistic than crossing them directly.
-2. **Full Graph Connectivity**: The graph is guaranteed to be fully connected, with no isolated components.
-3. **Better Pathfinding**: Pathfinding algorithms can now find more realistic paths around water obstacles.
-4. **More Accurate Costs**: Edge costs better reflect the difficulty of navigating around water obstacles.
-5. **Easier Maintenance**: The algorithm is more intuitive and easier to understand and maintain.
+1. **Improved Connectivity**: The enhanced approach provides better connectivity between terrain and water boundaries, especially across narrow water features.
+2. **More Natural Pathfinding**: The directional filtering and bridge nodes create more natural pathfinding options around water obstacles.
+3. **Reduced "White Space"**: The additional water boundary nodes in water hexagons help to reduce the "white space" effect between terrain and water obstacles.
+4. **Better Visualization**: The enhanced visualization tool provides a clearer understanding of the different node and edge types with distinct colors and styles.
+5. **Strategic Crossings**: The bridge nodes provide strategic crossings at narrow water obstacles, improving pathfinding options.
+6. **Easier Analysis**: The integrated visualization capabilities make it easier to analyze the results of the pipeline execution.
+7. **Improved Documentation**: The updated documentation provides a clearer understanding of the boundary hexagon layer approach and its visualization capabilities.
 
 ### Testing
-The obstacle boundary approach has been tested with various water body types and sizes, and it consistently creates a fully connected graph with realistic movement patterns around water obstacles.
+The enhanced approach has been tested with various water body types and sizes, and it consistently creates a fully connected graph with natural-looking connections between terrain and water boundaries. The visualization tool has been tested with different datasets and consistently produces clear and informative visualizations.

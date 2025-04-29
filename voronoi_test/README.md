@@ -43,6 +43,11 @@ voronoi_test/
 ├── README.md                 # This documentation file
 ├── run_tests.sh              # Main test runner script
 ├── results/                  # Directory for test results and reports
+├── connection_strategies/    # Tests for different connection strategies
+│   ├── README.md                   # Documentation for connection strategies
+│   ├── run_voronoi_test.sh         # Script to run connection strategy tests
+│   ├── voronoi_connection_test.sql # SQL tests for connection strategies
+│   └── run_voronoi_connection_test.py # Python script to visualize results
 └── sql/
     ├── setup/                # Setup scripts
     │   ├── create_test_tables.sql  # Creates test tables

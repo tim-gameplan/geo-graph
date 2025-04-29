@@ -103,6 +103,8 @@ We also need to create nodes along the water boundaries to represent the interfa
 1. Extract the intersection lines between boundary hexagons and water obstacles
 2. Create nodes at regular intervals along these intersection lines
 3. Ensure that nodes are properly spaced and don't create redundant connections
+4. Create additional water boundary nodes in water hexagons to improve connectivity
+5. Create bridge nodes at strategic locations to connect across narrow water obstacles
 
 ```sql
 -- Extract intersection lines between boundary hexagons and water obstacles
@@ -404,7 +406,12 @@ The boundary hexagon layer approach requires the following configuration paramet
   "boundary_hexagon_layer": {
     "boundary_node_spacing": 100,
     "boundary_edge_max_length": 200,
-    "water_speed_factor": 0.2
+    "water_speed_factor": 0.2,
+    "boundary_extension_distance": 50,
+    "max_bridge_distance": 300,
+    "max_bridge_length": 150,
+    "direction_count": 8,
+    "max_connections_per_direction": 2
   }
 }
 ```

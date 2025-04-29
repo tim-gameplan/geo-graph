@@ -152,6 +152,7 @@ The recommended solution has been implemented in the Voronoi obstacle boundary p
 4. **Testing**:
    - Created a comprehensive test suite for Voronoi diagram generation
    - Documented test cases and solutions in the `voronoi_test/` directory
+   - Organized connection strategy tests in `voronoi_test/connection_strategies/` directory
 
 ## Performance Considerations
 
