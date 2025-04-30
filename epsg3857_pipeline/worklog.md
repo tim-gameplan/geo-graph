@@ -347,3 +347,38 @@ Implemented a comprehensive enhancement to the Boundary Hexagon Layer approach:
 
 ### Testing
 The enhanced approach has been tested with various water body types and sizes, and it consistently creates a fully connected graph with natural-looking connections between terrain and water boundaries. The visualization tool has been tested with different datasets and consistently produces clear and informative visualizations.
+
+## 2025-04-30: Boundary Hexagon Layer Connection Strategy Enhancement
+
+### Issue
+The Boundary Hexagon Layer approach still had some connectivity issues:
+
+1. **Duplicate Boundary Nodes**: Boundary nodes were being created twice, once in the terrain_grid_points table and once in the boundary_nodes table, causing duplicate nodes at the same locations.
+2. **Missing Water Obstacle Graph**: Water boundary nodes were not connected to each other to form a complete water obstacle graph, limiting navigation options along water features.
+3. **Indirect Connections**: Boundary nodes were only connected to water boundary nodes through land portion nodes, creating indirect paths that weren't optimal for navigation.
+4. **Unified Graph Issues**: The unified graph was not properly including all edge types, leading to incomplete visualization and pathfinding.
+
+### Solution
+Implemented a comprehensive enhancement to the Boundary Hexagon Layer connection strategy:
+
+1. **Duplicate Node Prevention**: Modified the boundary node creation process to use DISTINCT ON with ST_SnapToGrid to ensure unique boundary nodes.
+2. **Water Obstacle Graph Creation**: Added a new edge type (water-boundary-to-water-boundary edges) to connect water boundary nodes to each other along water obstacle boundaries.
+3. **Direct Boundary-to-Water Connections**: Added a new edge type (boundary-to-water-boundary edges) to create direct connections between boundary nodes and water boundary nodes.
+4. **Unified Graph Improvements**: Updated the unified graph creation to include all edge types and ensure proper visualization.
+
+### Implementation
+1. Modified `05_create_boundary_nodes_hexagon.sql` to prevent duplicate boundary nodes using DISTINCT ON with ST_SnapToGrid.
+2. Updated `06_create_boundary_edges_hexagon.sql` to add water-boundary-to-water-boundary edges and boundary-to-water-boundary edges.
+3. Enhanced `07_create_unified_boundary_graph_hexagon.sql` to properly include all edge types in the unified graph.
+4. Created a new documentation file `2025-04-30_boundary_hexagon_layer_enhancement_summary.md` to document the enhancements.
+5. Updated the component status documentation to reflect the new connection strategies.
+
+### Benefits
+1. **Improved Navigation**: Direct connections between boundary nodes and water boundary nodes allow for more efficient pathfinding around water obstacles.
+2. **Complete Water Navigation**: The water obstacle graph enables navigation along water features, which is essential for water-based transportation.
+3. **Reduced Redundancy**: Eliminating duplicate boundary nodes reduces the graph size and improves performance.
+4. **Better Connectivity**: The enhanced connection strategies create a more natural transition between terrain and water obstacle boundaries.
+5. **Comprehensive Visualization**: The unified graph now shows all node and edge types, providing a clearer understanding of the graph structure.
+
+### Testing
+The enhanced connection strategy has been tested with various water body types and sizes, and it consistently creates a fully connected graph with natural-looking connections between terrain and water boundaries. The visualization tool now shows all node and edge types with distinct colors and styles, providing a comprehensive view of the graph structure.

@@ -1,0 +1,41 @@
+{
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "dbname": "gis",
+    "user": "gis",
+    "password": "gis"
+  },
+  "osm_data": {
+    "extract_bbox": [-122.4194, 37.7749, -122.4094, 37.7849],
+    "extract_tags": ["natural=water", "waterway=river", "waterway=stream", "waterway=canal"]
+  },
+  "terrain_grid": {
+    "grid_spacing": 200,
+    "max_edge_length": 500,
+    "storage_srid": 3857,
+    "display_srid": 4326
+  },
+  "water_obstacles": {
+    "buffer_distance": 50,
+    "simplify_tolerance": 10
+  },
+  "boundary_hexagon_layer": {
+    "boundary_node_spacing": 100,
+    "boundary_edge_max_length": 200,
+    "water_speed_factor": 0.2,
+    "boundary_extension_distance": 50,
+    "max_bridge_distance": 300,
+    "max_bridge_length": 150,
+    "direction_count": 8,
+    "max_connections_per_direction": 2
+  },
+  "visualization": {
+    "output_dir": "epsg3857_pipeline/visualizations",
+    "show_plot": true
+  },
+  "export": {
+    "output_dir": "epsg3857_pipeline/exports",
+    "export_format": "graphml"
+  }
+}

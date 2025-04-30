@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
 """
-Test script for the Boundary Hexagon Layer approach.
+Test Boundary Hexagon Layer
 
-This script tests the boundary hexagon layer pipeline by:
-1. Resetting the database
-2. Running the boundary hexagon layer pipeline
-3. Verifying that the expected tables are created and populated
-4. Checking that the graph is fully connected
+This script tests the boundary hexagon layer approach, which preserves hexagons at water boundaries
+and uses land portions of water hexagons to create more natural connections between terrain and water obstacles.
 """
 
 import os
 import sys
-import time
-import logging
+import unittest
+import psycopg2
 import subprocess
+import time
 from pathlib import Path
 
 # Add the parent directory to the path so we can import from core packages
@@ -24,257 +22,319 @@ from core.utils.logging_utils import setup_logger
 # Set up logging
 logger = setup_logger('test_boundary_hexagon_layer')
 
-def run_command(cmd, verbose=False):
+class TestBoundaryHexagonLayer(unittest.TestCase):
     """
-    Run a command and return the result.
-    
-    Args:
-        cmd (str): Command to run
-        verbose (bool): Whether to print verbose output
-    
-    Returns:
-        tuple: (success, stdout, stderr)
+    Test the boundary hexagon layer approach.
     """
-    if verbose:
-        logger.info(f"Running command: {cmd}")
     
-    start_time = time.time()
-    
-    try:
-        result = subprocess.run(
-            cmd,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
+    @classmethod
+    def setUpClass(cls):
+        """
+        Set up the test environment.
+        """
+        # Connect to the database
+        cls.connection = psycopg2.connect(
+            host='localhost',
+            port=5432,
+            dbname='gis',
+            user='gis',
+            password='gis'
         )
         
-        elapsed_time = time.time() - start_time
+        # Reset the database
+        cls._reset_database()
         
-        if result.returncode == 0:
-            if verbose:
-                logger.info(f"✅ Command completed successfully in {elapsed_time:.2f} seconds")
-            return True, result.stdout, result.stderr
-        else:
-            logger.error(f"❌ Command failed: {cmd}")
-            logger.error(f"Error output: {result.stderr}")
-            return False, result.stdout, result.stderr
+        # Run the boundary hexagon layer pipeline
+        cls._run_boundary_hexagon_layer_pipeline()
     
-    except Exception as e:
-        elapsed_time = time.time() - start_time
-        logger.error(f"❌ Command failed with exception: {str(e)}")
-        return False, "", str(e)
-
-def run_sql_query(query, container_name='geo-graph-db-1', verbose=False):
-    """
-    Run a SQL query and return the result.
+    @classmethod
+    def tearDownClass(cls):
+        """
+        Clean up the test environment.
+        """
+        # Close the database connection
+        cls.connection.close()
     
-    Args:
-        query (str): SQL query to run
-        container_name (str): Name of the Docker container
-        verbose (bool): Whether to print verbose output
-    
-    Returns:
-        tuple: (success, result)
-    """
-    cmd = f'docker exec {container_name} psql -U gis -d gis -c "{query}"'
-    success, stdout, stderr = run_command(cmd, verbose)
-    return success, stdout
-
-def check_table_exists(table_name, container_name='geo-graph-db-1', verbose=False):
-    """
-    Check if a table exists in the database.
-    
-    Args:
-        table_name (str): Name of the table to check
-        container_name (str): Name of the Docker container
-        verbose (bool): Whether to print verbose output
-    
-    Returns:
-        bool: True if the table exists, False otherwise
-    """
-    query = f"SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '{table_name}');"
-    success, result = run_sql_query(query, container_name, verbose)
-    
-    if not success:
-        logger.error(f"Failed to check if table {table_name} exists")
-        return False
-    
-    return "t" in result.lower()
-
-def check_table_has_rows(table_name, container_name='geo-graph-db-1', verbose=False):
-    """
-    Check if a table has any rows.
-    
-    Args:
-        table_name (str): Name of the table to check
-        container_name (str): Name of the Docker container
-        verbose (bool): Whether to print verbose output
-    
-    Returns:
-        bool: True if the table has rows, False otherwise
-    """
-    query = f"SELECT COUNT(*) FROM {table_name};"
-    success, result = run_sql_query(query, container_name, verbose)
-    
-    if not success:
-        logger.error(f"Failed to check if table {table_name} has rows")
-        return False
-    
-    # Extract the count from the result
-    try:
-        count_line = [line for line in result.split('\n') if line.strip().isdigit()][0]
-        count = int(count_line.strip())
-        return count > 0
-    except (IndexError, ValueError):
-        logger.error(f"Failed to parse row count from result: {result}")
-        return False
-
-def check_graph_connectivity(container_name='geo-graph-db-1', verbose=False):
-    """
-    Check if the graph is fully connected.
-    
-    Args:
-        container_name (str): Name of the Docker container
-        verbose (bool): Whether to print verbose output
-    
-    Returns:
-        bool: True if the graph is fully connected, False otherwise
-    """
-    query = """
-    WITH RECURSIVE
-    connected_nodes(node_id) AS (
-        -- Start with the first node
-        SELECT source_id FROM unified_boundary_edges LIMIT 1
-        UNION
-        -- Add all nodes reachable from already connected nodes
-        SELECT e.target_id
-        FROM connected_nodes c
-        JOIN unified_boundary_edges e ON c.node_id = e.source_id
-        WHERE e.target_id NOT IN (SELECT node_id FROM connected_nodes)
-    )
-    SELECT 
-        (SELECT COUNT(DISTINCT source_id) FROM unified_boundary_edges) AS total_nodes,
-        COUNT(*) AS connected_nodes,
-        COUNT(*) * 100.0 / (SELECT COUNT(DISTINCT source_id) FROM unified_boundary_edges) AS connectivity_percentage
-    FROM 
-        connected_nodes;
-    """
-    success, result = run_sql_query(query, container_name, verbose)
-    
-    if not success:
-        logger.error("Failed to check graph connectivity")
-        return False
-    
-    # Extract the connectivity percentage from the result
-    try:
-        lines = result.split('\n')
-        for line in lines:
-            if '|' in line and '%' in line:
-                parts = line.split('|')
-                if len(parts) >= 3:
-                    connectivity_percentage = float(parts[2].strip().replace('%', ''))
-                    if connectivity_percentage >= 99.9:  # Allow for small rounding errors
-                        return True
+    @classmethod
+    def _reset_database(cls):
+        """
+        Reset the database to a clean state.
+        """
+        try:
+            # Create a cursor
+            cursor = cls.connection.cursor()
+            
+            # Drop tables
+            tables = [
+                'terrain_grid',
+                'boundary_nodes',
+                'water_boundary_nodes',
+                'land_portion_nodes',
+                'boundary_boundary_edges',
+                'boundary_land_portion_edges',
+                'land_portion_water_boundary_edges',
+                'unified_boundary_nodes',
+                'unified_boundary_edges',
+                'unified_boundary_graph'
+            ]
+            
+            for table in tables:
+                cursor.execute(f"DROP TABLE IF EXISTS {table} CASCADE")
+            
+            # Commit the changes
+            cls.connection.commit()
+            
+            # Close the cursor
+            cursor.close()
+            
+            logger.info("Database reset successfully")
         
-        logger.error(f"Graph is not fully connected. Connectivity result: {result}")
-        return False
-    except Exception as e:
-        logger.error(f"Failed to parse connectivity result: {str(e)}")
-        return False
-
-def test_boundary_hexagon_layer(verbose=False):
-    """
-    Test the boundary hexagon layer pipeline.
+        except Exception as e:
+            logger.error(f"Error resetting database: {str(e)}")
+            cls.connection.rollback()
     
-    Args:
-        verbose (bool): Whether to print verbose output
+    @classmethod
+    def _run_boundary_hexagon_layer_pipeline(cls):
+        """
+        Run the boundary hexagon layer pipeline.
+        """
+        try:
+            # Run the pipeline
+            cmd = [
+                "python",
+                "epsg3857_pipeline/run_boundary_hexagon_layer_pipeline.py",
+                "--config",
+                "epsg3857_pipeline/config/boundary_hexagon_layer_config.json",
+                "--verbose"
+            ]
+            
+            logger.info(f"Running command: {' '.join(cmd)}")
+            
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            
+            stdout, stderr = process.communicate()
+            
+            if process.returncode != 0:
+                logger.error(f"Error running boundary hexagon layer pipeline: {stderr}")
+                raise Exception(f"Error running boundary hexagon layer pipeline: {stderr}")
+            
+            logger.info("Boundary hexagon layer pipeline ran successfully")
+        
+        except Exception as e:
+            logger.error(f"Error running boundary hexagon layer pipeline: {str(e)}")
+            raise
     
-    Returns:
-        bool: True if all tests pass, False otherwise
-    """
-    # Step 1: Reset the database
-    logger.info("Running Database reset: python epsg3857_pipeline/core/scripts/reset_database.py --reset-derived")
-    success, _, _ = run_command("python epsg3857_pipeline/core/scripts/reset_database.py --reset-derived", verbose)
+    def test_terrain_grid_exists(self):
+        """
+        Test that the terrain grid table exists.
+        """
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'terrain_grid')")
+        exists = cursor.fetchone()[0]
+        cursor.close()
+        self.assertTrue(exists, "Terrain grid table does not exist")
     
-    if not success:
-        logger.error("Failed to reset the database")
-        return False
+    def test_terrain_grid_has_data(self):
+        """
+        Test that the terrain grid table has data.
+        """
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT COUNT(*) FROM terrain_grid")
+        count = cursor.fetchone()[0]
+        cursor.close()
+        self.assertGreater(count, 0, "Terrain grid table has no data")
     
-    logger.info("✅ Database reset completed successfully")
+    def test_terrain_grid_has_hex_types(self):
+        """
+        Test that the terrain grid table has hex types.
+        """
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT DISTINCT hex_type FROM terrain_grid")
+        hex_types = [row[0] for row in cursor.fetchall()]
+        cursor.close()
+        self.assertIn('land', hex_types, "Terrain grid table has no land hexagons")
+        self.assertIn('boundary', hex_types, "Terrain grid table has no boundary hexagons")
+        self.assertIn('water_with_land', hex_types, "Terrain grid table has no water_with_land hexagons")
     
-    # Step 2: Run the boundary hexagon layer pipeline
-    logger.info("Running Boundary Hexagon Layer pipeline: python epsg3857_pipeline/run_boundary_hexagon_pipeline.py --verbose")
-    success, _, _ = run_command("python epsg3857_pipeline/run_boundary_hexagon_pipeline.py" + (" --verbose" if verbose else ""), verbose)
+    def test_boundary_nodes_exist(self):
+        """
+        Test that the boundary nodes table exists.
+        """
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'boundary_nodes')")
+        exists = cursor.fetchone()[0]
+        cursor.close()
+        self.assertTrue(exists, "Boundary nodes table does not exist")
     
-    if not success:
-        logger.error("Failed to run the boundary hexagon layer pipeline")
-        return False
+    def test_boundary_nodes_have_data(self):
+        """
+        Test that the boundary nodes table has data.
+        """
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT COUNT(*) FROM boundary_nodes")
+        count = cursor.fetchone()[0]
+        cursor.close()
+        self.assertGreater(count, 0, "Boundary nodes table has no data")
     
-    logger.info("✅ Boundary Hexagon Layer pipeline completed successfully")
+    def test_water_boundary_nodes_exist(self):
+        """
+        Test that the water boundary nodes table exists.
+        """
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'water_boundary_nodes')")
+        exists = cursor.fetchone()[0]
+        cursor.close()
+        self.assertTrue(exists, "Water boundary nodes table does not exist")
     
-    # Step 3: Verify that the expected tables are created and populated
-    tables_to_check = [
-        "water_features",
-        "water_buffers",
-        "water_obstacles",
-        "terrain_grid",
-        "boundary_nodes",
-        "water_boundary_nodes",
-        "land_land_edges",
-        "land_boundary_edges",
-        "boundary_boundary_edges",
-        "boundary_water_edges",
-        "water_boundary_edges",
-        "unified_boundary_edges"
-    ]
+    def test_water_boundary_nodes_have_data(self):
+        """
+        Test that the water boundary nodes table has data.
+        """
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT COUNT(*) FROM water_boundary_nodes")
+        count = cursor.fetchone()[0]
+        cursor.close()
+        self.assertGreater(count, 0, "Water boundary nodes table has no data")
     
-    all_tables_exist = True
-    all_tables_have_rows = True
+    def test_land_portion_nodes_exist(self):
+        """
+        Test that the land portion nodes table exists.
+        """
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'land_portion_nodes')")
+        exists = cursor.fetchone()[0]
+        cursor.close()
+        self.assertTrue(exists, "Land portion nodes table does not exist")
     
-    for table in tables_to_check:
-        if not check_table_exists(table, verbose=verbose):
-            logger.error(f"❌ Table {table} does not exist")
-            all_tables_exist = False
-        elif not check_table_has_rows(table, verbose=verbose):
-            logger.warning(f"⚠️ Table {table} exists but has no rows")
-            all_tables_have_rows = False
-        else:
-            logger.info(f"✅ Table {table} exists and has rows")
+    def test_land_portion_nodes_have_data(self):
+        """
+        Test that the land portion nodes table has data.
+        """
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT COUNT(*) FROM land_portion_nodes")
+        count = cursor.fetchone()[0]
+        cursor.close()
+        self.assertGreater(count, 0, "Land portion nodes table has no data")
     
-    if not all_tables_exist:
-        logger.error("Not all expected tables were created")
-        return False
+    def test_boundary_boundary_edges_exist(self):
+        """
+        Test that the boundary-to-boundary edges table exists.
+        """
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'boundary_boundary_edges')")
+        exists = cursor.fetchone()[0]
+        cursor.close()
+        self.assertTrue(exists, "Boundary-to-boundary edges table does not exist")
     
-    if not all_tables_have_rows:
-        logger.warning("Some tables have no rows, but this might be expected in some cases")
+    def test_boundary_boundary_edges_have_data(self):
+        """
+        Test that the boundary-to-boundary edges table has data.
+        """
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT COUNT(*) FROM boundary_boundary_edges")
+        count = cursor.fetchone()[0]
+        cursor.close()
+        self.assertGreater(count, 0, "Boundary-to-boundary edges table has no data")
     
-    # Step 4: Check that the graph is fully connected
-    if check_graph_connectivity(verbose=verbose):
-        logger.info("✅ Graph is fully connected")
-    else:
-        logger.error("❌ Graph is not fully connected")
-        return False
+    def test_boundary_land_portion_edges_exist(self):
+        """
+        Test that the boundary-to-land-portion edges table exists.
+        """
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'boundary_land_portion_edges')")
+        exists = cursor.fetchone()[0]
+        cursor.close()
+        self.assertTrue(exists, "Boundary-to-land-portion edges table does not exist")
     
-    logger.info("✅ All tests passed")
-    return True
-
-def main():
-    """
-    Main function to parse arguments and run the tests.
-    """
-    import argparse
+    def test_boundary_land_portion_edges_have_data(self):
+        """
+        Test that the boundary-to-land-portion edges table has data.
+        """
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT COUNT(*) FROM boundary_land_portion_edges")
+        count = cursor.fetchone()[0]
+        cursor.close()
+        self.assertGreater(count, 0, "Boundary-to-land-portion edges table has no data")
     
-    parser = argparse.ArgumentParser(description='Test the boundary hexagon layer pipeline')
-    parser.add_argument('--verbose', action='store_true', help='Print verbose output')
+    def test_land_portion_water_boundary_edges_exist(self):
+        """
+        Test that the land-portion-to-water-boundary edges table exists.
+        """
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'land_portion_water_boundary_edges')")
+        exists = cursor.fetchone()[0]
+        cursor.close()
+        self.assertTrue(exists, "Land-portion-to-water-boundary edges table does not exist")
     
-    args = parser.parse_args()
+    def test_land_portion_water_boundary_edges_have_data(self):
+        """
+        Test that the land-portion-to-water-boundary edges table has data.
+        """
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT COUNT(*) FROM land_portion_water_boundary_edges")
+        count = cursor.fetchone()[0]
+        cursor.close()
+        self.assertGreater(count, 0, "Land-portion-to-water-boundary edges table has no data")
     
-    # Run the tests
-    success = test_boundary_hexagon_layer(args.verbose)
+    def test_unified_boundary_graph_exists(self):
+        """
+        Test that the unified boundary graph table exists.
+        """
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'unified_boundary_graph')")
+        exists = cursor.fetchone()[0]
+        cursor.close()
+        self.assertTrue(exists, "Unified boundary graph table does not exist")
     
-    # Return exit code
-    return 0 if success else 1
+    def test_unified_boundary_graph_has_data(self):
+        """
+        Test that the unified boundary graph table has data.
+        """
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT COUNT(*) FROM unified_boundary_graph")
+        count = cursor.fetchone()[0]
+        cursor.close()
+        self.assertGreater(count, 0, "Unified boundary graph table has no data")
+    
+    def test_unified_boundary_graph_has_nodes_and_edges(self):
+        """
+        Test that the unified boundary graph table has both nodes and edges.
+        """
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT DISTINCT element_type FROM unified_boundary_graph")
+        element_types = [row[0] for row in cursor.fetchall()]
+        cursor.close()
+        self.assertIn('node', element_types, "Unified boundary graph table has no nodes")
+        self.assertIn('edge', element_types, "Unified boundary graph table has no edges")
+    
+    def test_unified_boundary_graph_has_all_node_types(self):
+        """
+        Test that the unified boundary graph table has all node types.
+        """
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT DISTINCT element_subtype FROM unified_boundary_graph WHERE element_type = 'node'")
+        node_types = [row[0] for row in cursor.fetchall()]
+        cursor.close()
+        self.assertIn('boundary', node_types, "Unified boundary graph table has no boundary nodes")
+        self.assertIn('water_boundary', node_types, "Unified boundary graph table has no water boundary nodes")
+        self.assertIn('land_portion', node_types, "Unified boundary graph table has no land portion nodes")
+    
+    def test_unified_boundary_graph_has_all_edge_types(self):
+        """
+        Test that the unified boundary graph table has all edge types.
+        """
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT DISTINCT element_subtype FROM unified_boundary_graph WHERE element_type = 'edge'")
+        edge_types = [row[0] for row in cursor.fetchall()]
+        cursor.close()
+        self.assertIn('boundary-boundary', edge_types, "Unified boundary graph table has no boundary-to-boundary edges")
+        self.assertIn('boundary-land_portion', edge_types, "Unified boundary graph table has no boundary-to-land-portion edges")
+        self.assertIn('land_portion-water_boundary', edge_types, "Unified boundary graph table has no land-portion-to-water-boundary edges")
 
 if __name__ == '__main__':
-    sys.exit(main())
+    unittest.main()

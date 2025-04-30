@@ -61,6 +61,25 @@ while [[ $# -gt 0 ]]; do
       RUN_VORONOI=false
       shift
       ;;
+    --enhanced-boundary-hexagon-only)
+      RUN_STANDARD=false
+      RUN_DELAUNAY=false
+      RUN_WATER_BOUNDARY=false
+      RUN_OBSTACLE_BOUNDARY=false
+      RUN_BOUNDARY_HEXAGON=false
+      RUN_VORONOI=false
+      # We'll run the enhanced boundary hexagon layer test directly
+      echo -e "${YELLOW}Running Enhanced Boundary Hexagon Layer tests...${NC}"
+      python core/tests/test_boundary_hexagon_layer.py $VERBOSE
+      
+      if [ $? -eq 0 ]; then
+          echo -e "${GREEN}Enhanced Boundary Hexagon Layer tests passed!${NC}"
+          exit 0
+      else
+          echo -e "${RED}Enhanced Boundary Hexagon Layer tests failed!${NC}"
+          exit 1
+      fi
+      ;;
     --hexagon-obstacle-only)
       RUN_STANDARD=false
       RUN_DELAUNAY=false

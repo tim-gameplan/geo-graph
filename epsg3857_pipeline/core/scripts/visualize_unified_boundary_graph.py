@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-Visualize Boundary Hexagon Layer
+Visualize Unified Boundary Graph
 
-This script visualizes the boundary hexagon layer approach, showing:
+This script visualizes the unified boundary graph, showing:
 1. Terrain grid (land, boundary, water_with_land hexagons)
-2. Boundary nodes
-3. Water boundary nodes
-4. Land portion nodes
-5. Connections between nodes
+2. Terrain edges
+3. Boundary nodes
+4. Water boundary nodes
+5. Land portion nodes
+6. All connections between nodes
 """
 
 import os
@@ -27,7 +28,7 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 from core.utils.logging_utils import setup_logger
 
 # Set up logging
-logger = setup_logger('visualize_boundary_hexagon_layer')
+logger = setup_logger('visualize_unified_boundary_graph')
 
 def connect_to_database(host='localhost', port=5432, dbname='gis', user='gis', password='gis'):
     """
@@ -78,53 +79,21 @@ def fetch_data(connection):
         """)
         terrain_grid_data = cursor.fetchall()
         
-        # Fetch boundary nodes
-        logger.info("Fetching boundary nodes...")
+        # Fetch unified boundary nodes
+        logger.info("Fetching unified boundary nodes...")
         cursor.execute("""
             SELECT id, node_type, ST_AsBinary(geom) AS geom
-            FROM boundary_nodes
+            FROM unified_boundary_nodes
         """)
-        boundary_nodes_data = cursor.fetchall()
+        unified_nodes_data = cursor.fetchall()
         
-        # Fetch water boundary nodes
-        logger.info("Fetching water boundary nodes...")
+        # Fetch unified boundary edges
+        logger.info("Fetching unified boundary edges...")
         cursor.execute("""
-            SELECT id, node_type, ST_AsBinary(geom) AS geom
-            FROM water_boundary_nodes
+            SELECT id, start_node_type, end_node_type, ST_AsBinary(geom) AS geom
+            FROM unified_boundary_edges
         """)
-        water_boundary_nodes_data = cursor.fetchall()
-        
-        # Fetch land portion nodes
-        logger.info("Fetching land portion nodes...")
-        cursor.execute("""
-            SELECT id, node_type, ST_AsBinary(geom) AS geom
-            FROM land_portion_nodes
-        """)
-        land_portion_nodes_data = cursor.fetchall()
-        
-        # Fetch boundary-to-boundary edges
-        logger.info("Fetching boundary-to-boundary edges...")
-        cursor.execute("""
-            SELECT id, start_node_id, end_node_id, ST_AsBinary(geom) AS geom
-            FROM boundary_boundary_edges
-        """)
-        boundary_boundary_edges_data = cursor.fetchall()
-        
-        # Fetch boundary-to-land-portion edges
-        logger.info("Fetching boundary-to-land-portion edges...")
-        cursor.execute("""
-            SELECT id, start_node_id, end_node_id, ST_AsBinary(geom) AS geom
-            FROM boundary_land_portion_edges
-        """)
-        boundary_land_portion_edges_data = cursor.fetchall()
-        
-        # Fetch land-portion-to-water-boundary edges
-        logger.info("Fetching land-portion-to-water-boundary edges...")
-        cursor.execute("""
-            SELECT id, start_node_id, end_node_id, ST_AsBinary(geom) AS geom
-            FROM land_portion_water_boundary_edges
-        """)
-        land_portion_water_boundary_edges_data = cursor.fetchall()
+        unified_edges_data = cursor.fetchall()
         
         # Fetch water obstacles
         logger.info("Fetching water obstacles...")
@@ -143,33 +112,13 @@ def fetch_data(connection):
             geometry='geometry'
         )
         
-        boundary_nodes_gdf = gpd.GeoDataFrame(
-            [{'id': row[0], 'node_type': row[1], 'geometry': wkb.loads(row[2])} for row in boundary_nodes_data],
+        unified_nodes_gdf = gpd.GeoDataFrame(
+            [{'id': row[0], 'node_type': row[1], 'geometry': wkb.loads(row[2])} for row in unified_nodes_data],
             geometry='geometry'
         )
         
-        water_boundary_nodes_gdf = gpd.GeoDataFrame(
-            [{'id': row[0], 'node_type': row[1], 'geometry': wkb.loads(row[2])} for row in water_boundary_nodes_data],
-            geometry='geometry'
-        )
-        
-        land_portion_nodes_gdf = gpd.GeoDataFrame(
-            [{'id': row[0], 'node_type': row[1], 'geometry': wkb.loads(row[2])} for row in land_portion_nodes_data],
-            geometry='geometry'
-        )
-        
-        boundary_boundary_edges_gdf = gpd.GeoDataFrame(
-            [{'id': row[0], 'start_node_id': row[1], 'end_node_id': row[2], 'geometry': wkb.loads(row[3])} for row in boundary_boundary_edges_data],
-            geometry='geometry'
-        )
-        
-        boundary_land_portion_edges_gdf = gpd.GeoDataFrame(
-            [{'id': row[0], 'start_node_id': row[1], 'end_node_id': row[2], 'geometry': wkb.loads(row[3])} for row in boundary_land_portion_edges_data],
-            geometry='geometry'
-        )
-        
-        land_portion_water_boundary_edges_gdf = gpd.GeoDataFrame(
-            [{'id': row[0], 'start_node_id': row[1], 'end_node_id': row[2], 'geometry': wkb.loads(row[3])} for row in land_portion_water_boundary_edges_data],
+        unified_edges_gdf = gpd.GeoDataFrame(
+            [{'id': row[0], 'start_node_type': row[1], 'end_node_type': row[2], 'geometry': wkb.loads(row[3])} for row in unified_edges_data],
             geometry='geometry'
         )
         
@@ -180,12 +129,8 @@ def fetch_data(connection):
         
         return {
             'terrain_grid': terrain_grid_gdf,
-            'boundary_nodes': boundary_nodes_gdf,
-            'water_boundary_nodes': water_boundary_nodes_gdf,
-            'land_portion_nodes': land_portion_nodes_gdf,
-            'boundary_boundary_edges': boundary_boundary_edges_gdf,
-            'boundary_land_portion_edges': boundary_land_portion_edges_gdf,
-            'land_portion_water_boundary_edges': land_portion_water_boundary_edges_gdf,
+            'unified_nodes': unified_nodes_gdf,
+            'unified_edges': unified_edges_gdf,
             'water_obstacles': water_obstacles_gdf
         }
     
@@ -193,9 +138,9 @@ def fetch_data(connection):
         logger.error(f"Error fetching data: {str(e)}")
         return None
 
-def visualize_boundary_hexagon_layer(data, output_dir=None, show_plot=True):
+def visualize_unified_boundary_graph(data, output_dir=None, show_plot=True):
     """
-    Visualize the boundary hexagon layer.
+    Visualize the unified boundary graph.
     
     Args:
         data (dict): Dictionary containing GeoDataFrames for each element
@@ -215,47 +160,67 @@ def visualize_boundary_hexagon_layer(data, output_dir=None, show_plot=True):
         boundary_hexagons = terrain_grid_gdf[terrain_grid_gdf['hex_type'] == 'boundary']
         water_with_land_hexagons = terrain_grid_gdf[terrain_grid_gdf['hex_type'] == 'water_with_land']
         
-        land_hexagons.plot(ax=ax, color='lightgreen', alpha=0.5, edgecolor='black', linewidth=0.5)
-        boundary_hexagons.plot(ax=ax, color='yellow', alpha=0.5, edgecolor='black', linewidth=0.5)
-        water_with_land_hexagons.plot(ax=ax, color='lightblue', alpha=0.5, edgecolor='black', linewidth=0.5)
+        land_hexagons.plot(ax=ax, color='lightgreen', alpha=0.3, edgecolor='black', linewidth=0.5)
+        boundary_hexagons.plot(ax=ax, color='yellow', alpha=0.3, edgecolor='black', linewidth=0.5)
+        water_with_land_hexagons.plot(ax=ax, color='lightblue', alpha=0.3, edgecolor='black', linewidth=0.5)
         
         # Plot water obstacles
         water_obstacles_gdf = data['water_obstacles']
         water_obstacles_gdf.plot(ax=ax, color='blue', alpha=0.3, edgecolor='blue', linewidth=0.5)
         
-        # Plot boundary nodes
-        boundary_nodes_gdf = data['boundary_nodes']
-        boundary_nodes_gdf.plot(ax=ax, color='orange', markersize=20, marker='o')
+        # Plot nodes by type
+        unified_nodes_gdf = data['unified_nodes']
         
-        # Plot water boundary nodes
-        water_boundary_nodes_gdf = data['water_boundary_nodes']
-        water_boundary_nodes_gdf.plot(ax=ax, color='blue', markersize=20, marker='o')
+        # Terrain nodes (land and boundary)
+        terrain_nodes = unified_nodes_gdf[unified_nodes_gdf['node_type'].isin(['land', 'boundary'])]
+        terrain_nodes.plot(ax=ax, color='darkgreen', markersize=10, marker='o')
         
-        # Plot land portion nodes
-        land_portion_nodes_gdf = data['land_portion_nodes']
-        land_portion_nodes_gdf.plot(ax=ax, color='green', markersize=20, marker='o')
+        # Boundary nodes
+        boundary_nodes = unified_nodes_gdf[unified_nodes_gdf['node_type'] == 'boundary_node']
+        boundary_nodes.plot(ax=ax, color='orange', markersize=20, marker='o')
         
-        # Plot boundary-to-boundary edges
-        boundary_boundary_edges_gdf = data['boundary_boundary_edges']
-        boundary_boundary_edges_gdf.plot(ax=ax, color='orange', linewidth=1.5)
+        # Water boundary nodes
+        water_boundary_nodes = unified_nodes_gdf[unified_nodes_gdf['node_type'] == 'water_boundary']
+        water_boundary_nodes.plot(ax=ax, color='blue', markersize=20, marker='o')
         
-        # Plot boundary-to-land-portion edges
-        boundary_land_portion_edges_gdf = data['boundary_land_portion_edges']
-        boundary_land_portion_edges_gdf.plot(ax=ax, color='green', linewidth=1.5)
+        # Land portion nodes
+        land_portion_nodes = unified_nodes_gdf[unified_nodes_gdf['node_type'] == 'land_portion']
+        land_portion_nodes.plot(ax=ax, color='green', markersize=20, marker='o')
         
-        # Plot land-portion-to-water-boundary edges
-        land_portion_water_boundary_edges_gdf = data['land_portion_water_boundary_edges']
-        land_portion_water_boundary_edges_gdf.plot(ax=ax, color='blue', linewidth=1.5)
+        # Plot edges by type
+        unified_edges_gdf = data['unified_edges']
+        
+        # Terrain edges
+        terrain_edges = unified_edges_gdf[(unified_edges_gdf['start_node_type'] == 'terrain') & 
+                                         (unified_edges_gdf['end_node_type'] == 'terrain')]
+        terrain_edges.plot(ax=ax, color='darkgreen', linewidth=1.0)
+        
+        # Boundary-to-boundary edges
+        boundary_boundary_edges = unified_edges_gdf[(unified_edges_gdf['start_node_type'] == 'boundary_node') & 
+                                                   (unified_edges_gdf['end_node_type'] == 'boundary_node')]
+        boundary_boundary_edges.plot(ax=ax, color='orange', linewidth=1.5)
+        
+        # Boundary-to-land-portion edges
+        boundary_land_portion_edges = unified_edges_gdf[(unified_edges_gdf['start_node_type'] == 'boundary_node') & 
+                                                       (unified_edges_gdf['end_node_type'] == 'land_portion')]
+        boundary_land_portion_edges.plot(ax=ax, color='green', linewidth=1.5)
+        
+        # Land-portion-to-water-boundary edges
+        land_portion_water_boundary_edges = unified_edges_gdf[(unified_edges_gdf['start_node_type'] == 'land_portion') & 
+                                                             (unified_edges_gdf['end_node_type'] == 'water_boundary')]
+        land_portion_water_boundary_edges.plot(ax=ax, color='blue', linewidth=1.5)
         
         # Add legend
         legend_elements = [
-            mpatches.Patch(color='lightgreen', alpha=0.5, label='Land Hexagons'),
-            mpatches.Patch(color='yellow', alpha=0.5, label='Boundary Hexagons'),
-            mpatches.Patch(color='lightblue', alpha=0.5, label='Water with Land Hexagons'),
+            mpatches.Patch(color='lightgreen', alpha=0.3, label='Land Hexagons'),
+            mpatches.Patch(color='yellow', alpha=0.3, label='Boundary Hexagons'),
+            mpatches.Patch(color='lightblue', alpha=0.3, label='Water with Land Hexagons'),
             mpatches.Patch(color='blue', alpha=0.3, label='Water Obstacles'),
+            plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='darkgreen', markersize=10, label='Terrain Nodes'),
             plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='orange', markersize=10, label='Boundary Nodes'),
             plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='blue', markersize=10, label='Water Boundary Nodes'),
             plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='green', markersize=10, label='Land Portion Nodes'),
+            plt.Line2D([0], [0], color='darkgreen', linewidth=1.0, label='Terrain Edges'),
             plt.Line2D([0], [0], color='orange', linewidth=1.5, label='Boundary-to-Boundary Edges'),
             plt.Line2D([0], [0], color='green', linewidth=1.5, label='Boundary-to-Land-Portion Edges'),
             plt.Line2D([0], [0], color='blue', linewidth=1.5, label='Land-Portion-to-Water-Boundary Edges')
@@ -263,7 +228,7 @@ def visualize_boundary_hexagon_layer(data, output_dir=None, show_plot=True):
         ax.legend(handles=legend_elements, loc='upper right')
         
         # Set title
-        ax.set_title('Boundary Hexagon Layer Visualization', fontsize=16)
+        ax.set_title('Unified Boundary Graph Visualization', fontsize=16)
         
         # Set axis labels
         ax.set_xlabel('X Coordinate', fontsize=12)
@@ -276,7 +241,7 @@ def visualize_boundary_hexagon_layer(data, output_dir=None, show_plot=True):
         if output_dir:
             os.makedirs(output_dir, exist_ok=True)
             timestamp = datetime.now().strftime('%Y-%m-%d_%H%M')
-            output_file = os.path.join(output_dir, f'{timestamp}_boundary_hexagon_layer.png')
+            output_file = os.path.join(output_dir, f'{timestamp}_unified_boundary_graph.png')
             plt.savefig(output_file, dpi=300, bbox_inches='tight')
             logger.info(f"Visualization saved to {output_file}")
         
@@ -287,14 +252,14 @@ def visualize_boundary_hexagon_layer(data, output_dir=None, show_plot=True):
         return output_file if output_dir else None
     
     except Exception as e:
-        logger.error(f"Error visualizing boundary hexagon layer: {str(e)}")
+        logger.error(f"Error visualizing unified boundary graph: {str(e)}")
         return None
 
 def main():
     """
     Main function to parse arguments and run the visualization.
     """
-    parser = argparse.ArgumentParser(description='Visualize the boundary hexagon layer')
+    parser = argparse.ArgumentParser(description='Visualize the unified boundary graph')
     parser.add_argument('--host', type=str, default='localhost',
                         help='Database host')
     parser.add_argument('--port', type=int, default=5432,
@@ -333,15 +298,15 @@ def main():
         connection.close()
         return 1
     
-    # Visualize the boundary hexagon layer
-    output_file = visualize_boundary_hexagon_layer(
+    # Visualize the unified boundary graph
+    output_file = visualize_unified_boundary_graph(
         data,
         output_dir=args.output_dir,
         show_plot=not args.no_show
     )
     
     if output_file is None:
-        logger.error("Failed to visualize the boundary hexagon layer")
+        logger.error("Failed to visualize the unified boundary graph")
         connection.close()
         return 1
     
