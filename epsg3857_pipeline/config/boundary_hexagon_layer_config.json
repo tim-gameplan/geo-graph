@@ -28,7 +28,10 @@
     "max_bridge_distance": 300,
     "max_bridge_length": 150,
     "direction_count": 8,
-    "max_connections_per_direction": 2
+    "max_connections_per_direction": 2,
+    "max_land_portion_connection_distance": 300,
+    "land_portion_connection_modulo": 3,
+    "land_speed_factor": 1.0
   },
   "visualization": {
     "output_dir": "epsg3857_pipeline/visualizations",

@@ -210,6 +210,16 @@ def visualize_unified_boundary_graph(data, output_dir=None, show_plot=True):
                                                              (unified_edges_gdf['end_node_type'] == 'water_boundary')]
         land_portion_water_boundary_edges.plot(ax=ax, color='blue', linewidth=1.5)
         
+        # Land-portion-to-land-portion edges
+        land_portion_land_portion_edges = unified_edges_gdf[(unified_edges_gdf['start_node_type'] == 'land_portion') &
+                                                           (unified_edges_gdf['end_node_type'] == 'land_portion')]
+        land_portion_land_portion_edges.plot(ax=ax, color='purple', linewidth=2.0, linestyle='--')
+
+        # Land-portion-to-land edges
+        land_portion_land_edges = unified_edges_gdf[(unified_edges_gdf['start_node_type'] == 'land_portion') &
+                                                   (unified_edges_gdf['end_node_type'] == 'land')]
+        land_portion_land_edges.plot(ax=ax, color='red', linewidth=2.0)
+        
         # Add legend
         legend_elements = [
             mpatches.Patch(color='lightgreen', alpha=0.3, label='Land Hexagons'),
@@ -223,7 +233,9 @@ def visualize_unified_boundary_graph(data, output_dir=None, show_plot=True):
             plt.Line2D([0], [0], color='darkgreen', linewidth=1.0, label='Terrain Edges'),
             plt.Line2D([0], [0], color='orange', linewidth=1.5, label='Boundary-to-Boundary Edges'),
             plt.Line2D([0], [0], color='green', linewidth=1.5, label='Boundary-to-Land-Portion Edges'),
-            plt.Line2D([0], [0], color='blue', linewidth=1.5, label='Land-Portion-to-Water-Boundary Edges')
+            plt.Line2D([0], [0], color='blue', linewidth=1.5, label='Land-Portion-to-Water-Boundary Edges'),
+            plt.Line2D([0], [0], color='purple', linewidth=2.0, linestyle='--', label='Land-Portion-to-Land-Portion Edges'),
+            plt.Line2D([0], [0], color='red', linewidth=2.0, label='Land-Portion-to-Land Edges')
         ]
         ax.legend(handles=legend_elements, loc='upper right')
         

@@ -1,13 +1,16 @@
 /*
- * 06_create_boundary_edges_hexagon.sql
+ * 06_create_boundary_edges_hexagon_enhanced.sql
  * 
- * Create boundary edges for the boundary hexagon layer approach
+ * Enhanced version of the boundary edges creation script for the boundary hexagon layer approach
  * This script creates:
  * 1. Boundary-to-boundary edges (connecting boundary nodes to each other)
  * 2. Boundary-to-land-portion edges (connecting boundary nodes to land portion nodes)
  * 3. Land-portion-to-water-boundary edges (connecting land portion nodes to water boundary nodes)
  * 4. Water-boundary-to-water-boundary edges (connecting water boundary nodes to form the water obstacle graph)
  * 5. Boundary-to-water-boundary edges (connecting boundary nodes directly to water boundary nodes)
+ * 6. Land-portion-to-land edges (connecting land portion nodes to land nodes)
+ * 
+ * ENHANCEMENT: Improved land-portion-to-land/boundary connections to ensure better connectivity
  */
 
 -- Drop existing tables if they exist
@@ -285,38 +288,57 @@ WHERE
             AND NOT ST_Intersects(ST_Buffer(lp2.geom, 1), wo.geom)
     );
 
--- Create land-portion-to-land edges
--- Connect land portion nodes to land or boundary nodes
+-- ENHANCED: Create land-portion-to-land/boundary edges
+-- Connect each land portion node to the closest land and boundary nodes
+-- This ensures better connectivity between land portions and the rest of the terrain
 INSERT INTO land_portion_land_edges (start_node_id, end_node_id, geom, length, cost)
-SELECT
-    lp.id AS start_node_id,
-    t.id AS end_node_id,
-    ST_MakeLine(lp.geom, t.geom) AS geom,
-    ST_Length(ST_MakeLine(lp.geom, t.geom)) AS length,
-    ST_Length(ST_MakeLine(lp.geom, t.geom)) AS cost
-FROM
-    land_portion_nodes lp
-JOIN
-    terrain_grid_points t ON t.hex_type IN ('land', 'boundary')
-WHERE
-    ST_DWithin(lp.geom, t.geom, :boundary_edge_max_length)
-    -- Ensure the edge doesn't cross through water obstacles
-    AND NOT EXISTS (
-        SELECT 1
-        FROM water_obstacles wo
-        WHERE ST_Intersects(ST_MakeLine(lp.geom, t.geom), wo.geom)
-            AND NOT ST_Intersects(ST_Buffer(lp.geom, 1), wo.geom)
-            AND NOT ST_Intersects(ST_Buffer(t.geom, 1), wo.geom)
-    )
-    -- Limit to the closest land/boundary nodes for each land portion node
-    AND t.id IN (
-        SELECT t2.id
-        FROM terrain_grid_points t2
-        WHERE t2.hex_type IN ('land', 'boundary')
-          AND ST_DWithin(lp.geom, t2.geom, :boundary_edge_max_length)
-        ORDER BY ST_Distance(lp.geom, t2.geom)
-        LIMIT :max_connections_per_direction
-    );
+WITH land_boundary_nodes AS (
+    -- Get all land and boundary nodes
+    SELECT 
+        id, 
+        geom, 
+        hex_type AS node_type
+    FROM 
+        terrain_grid_points
+    WHERE 
+        hex_type IN ('land', 'boundary')
+),
+closest_nodes AS (
+    -- For each land portion node, find the closest land and boundary nodes
+    SELECT 
+        lp.id AS land_portion_id,
+        lb.id AS land_boundary_id,
+        lb.node_type,
+        ST_Distance(lp.geom, lb.geom) AS distance,
+        ST_MakeLine(lp.geom, lb.geom) AS geom,
+        -- Rank nodes by distance for each land portion node
+        ROW_NUMBER() OVER (PARTITION BY lp.id ORDER BY ST_Distance(lp.geom, lb.geom)) AS rank
+    FROM 
+        land_portion_nodes lp
+    CROSS JOIN 
+        land_boundary_nodes lb
+    WHERE 
+        ST_DWithin(lp.geom, lb.geom, :boundary_edge_max_length * 2)
+        -- Ensure the edge doesn't cross through water obstacles
+        AND NOT EXISTS (
+            SELECT 1
+            FROM water_obstacles wo
+            WHERE ST_Intersects(ST_MakeLine(lp.geom, lb.geom), wo.geom)
+                AND NOT ST_Intersects(ST_Buffer(lp.geom, 1), wo.geom)
+                AND NOT ST_Intersects(ST_Buffer(lb.geom, 1), wo.geom)
+        )
+)
+-- Select the top 5 closest land/boundary nodes for each land portion node
+SELECT 
+    land_portion_id AS start_node_id,
+    land_boundary_id AS end_node_id,
+    geom,
+    distance AS length,
+    distance AS cost
+FROM 
+    closest_nodes
+WHERE 
+    rank <= 5;  -- Connect to 5 closest land/boundary nodes instead of just 2
 
 -- Combine all edges into a single table
 INSERT INTO all_boundary_edges (start_node_id, end_node_id, start_node_type, end_node_type, geom, length, cost)

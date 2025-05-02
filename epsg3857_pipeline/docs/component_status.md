@@ -20,7 +20,7 @@ This document provides a reference for the status of each component in the EPSG:
 | Voronoi Obstacle Boundary | **STABLE** | 2025-04-26 | Uses Voronoi diagrams for natural connections between terrain and water | None | N/A |
 | Reversed Voronoi Obstacle Boundary | **STABLE** | 2025-04-27 | Uses reversed Voronoi approach for more natural connections | None | N/A |
 | Delaunay Triangulation | **EXPERIMENTAL** | 2025-04-22 | Uses Delaunay triangulation for terrain representation | Performance issues with large datasets | Standard Pipeline |
-| Boundary Hexagon Layer | **STABLE** | 2025-04-30 | Preserves hexagons at water boundaries for better connectivity and uses land portions of water hexagons to connect boundary nodes to water boundary nodes. Now includes terrain edges in the unified graph. | None | N/A |
+| Boundary Hexagon Layer | **STABLE** | 2025-05-01 | Preserves hexagons at water boundaries for better connectivity and uses land portions of water hexagons to connect boundary nodes to water boundary nodes. Now includes terrain edges in the unified graph and direct connections from land portion nodes to land/boundary nodes. | None | N/A |
 
 ## Core Components
 
@@ -79,7 +79,7 @@ This document provides a reference for the status of each component in the EPSG:
 | 05_create_boundary_nodes_3857.sql | **STABLE** | 2025-04-28 | Creates boundary nodes with enhanced water boundary and bridge nodes | None | N/A |
 | 05_create_boundary_nodes_hexagon.sql | **STABLE** | 2025-04-30 | Creates boundary nodes, water boundary nodes, and land portion nodes | None | N/A |
 | 06_create_boundary_edges_3857.sql | **STABLE** | 2025-04-28 | Creates boundary edges with directional filtering and bridge connections | None | N/A |
-| 06_create_boundary_edges_hexagon.sql | **STABLE** | 2025-04-30 | Creates connections between boundary nodes, land portion nodes, and water boundary nodes | None | N/A |
+| 06_create_boundary_edges_hexagon.sql | **STABLE** | 2025-05-01 | Creates connections between boundary nodes, land portion nodes, water boundary nodes, and land nodes | None | N/A |
 | 07_create_unified_boundary_graph_hexagon.sql | **STABLE** | 2025-04-30 | Creates unified boundary graph for the boundary hexagon layer approach | None | N/A |
 | 07_create_unified_boundary_graph_3857.sql | **STABLE** | 2025-04-25 | Creates unified boundary graph | None | N/A |
 | 07_create_environmental_tables_3857.sql | **STABLE** | 2025-04-23 | Creates environmental tables | None | N/A |
@@ -96,7 +96,7 @@ This document provides a reference for the status of each component in the EPSG:
 | crs_standardized_config_improved.json | **STABLE** | 2025-04-23 | Configuration with improved water edge creation | None | N/A |
 | crs_standardized_config_boundary.json | **STABLE** | 2025-04-23 | Configuration for water boundary approach | None | N/A |
 | crs_standardized_config_boundary_hexagon.json | **STABLE** | 2025-04-25 | Configuration for boundary hexagon layer approach | None | N/A |
-| boundary_hexagon_layer_config.json | **STABLE** | 2025-04-30 | Enhanced configuration for boundary hexagon layer approach | None | N/A |
+| boundary_hexagon_layer_config.json | **STABLE** | 2025-05-01 | Enhanced configuration for boundary hexagon layer approach with land portion land connections | None | N/A |
 | hexagon_obstacle_boundary_config.json | **STABLE** | 2025-04-25 | Configuration for hexagon obstacle boundary approach | None | N/A |
 | voronoi_obstacle_boundary_config.json | **STABLE** | 2025-04-26 | Configuration for Voronoi obstacle boundary approach | None | N/A |
 | delaunay_config.json | **EXPERIMENTAL** | 2025-04-22 | Configuration for Delaunay triangulation | None | N/A |
@@ -142,4 +142,5 @@ This document provides a reference for the status of each component in the EPSG:
 | pipeline_comparison.md | **STABLE** | 2025-04-26 | Comparison of different pipeline approaches | None | N/A |
 | worklog.md | **STABLE** | 2025-04-26 | Development worklog | None | N/A |
 | test_plan.md | **STABLE** | 2025-04-22 | Test plan | None | N/A |
-| component_status.md | **STABLE** | 2025-04-30 | Component status documentation | None | N/A |
+| component_status.md | **STABLE** | 2025-05-01 | Component status documentation | None | N/A |
+| land_portion_land_connections_enhancement_summary.md | **STABLE** | 2025-05-01 | Documentation of land portion to land connections enhancement | None | N/A |

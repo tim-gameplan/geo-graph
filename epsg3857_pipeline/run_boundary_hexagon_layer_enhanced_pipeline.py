@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """
-Boundary Hexagon Layer Pipeline Runner
+Enhanced Boundary Hexagon Layer Pipeline Runner
 
-This script runs the water obstacle pipeline with the boundary hexagon layer approach,
-which preserves hexagons at water boundaries for better connectivity and uses land portions
-of water hexagons to connect boundary nodes to water boundary nodes.
+This script runs the water obstacle pipeline with the enhanced boundary hexagon layer approach,
+which improves connectivity between land_portion nodes and land/boundary nodes.
 """
 
 import os
@@ -23,9 +22,9 @@ from core.utils.logging_utils import setup_logger
 from core.scripts.config_loader_3857 import load_config
 
 # Set up logging
-logger = setup_logger('boundary_hexagon_layer_pipeline')
+logger = setup_logger('boundary_hexagon_layer_enhanced_pipeline')
 
-def run_sql_script(script_path, params, container_name='geo-graph-db-1', verbose=False):
+def run_sql_script(script_path, params, container_name='db', verbose=False):
     """
     Run a SQL script with parameters using psql in a Docker container.
     
@@ -63,7 +62,7 @@ def run_sql_script(script_path, params, container_name='geo-graph-db-1', verbose
             
             # Run the SQL script directly using psql in the Docker container
             cmd = [
-                "docker", "exec", "-i", container_name,
+                "docker", "compose", "exec", container_name,
                 "psql", "-U", "gis", "-d", "gis"
             ]
             
@@ -98,9 +97,9 @@ def run_sql_script(script_path, params, container_name='geo-graph-db-1', verbose
         logger.error(f"Error running SQL script {os.path.basename(script_path)}: {str(e)}")
         return False
 
-def run_pipeline(config_path, sql_dir, container_name='geo-graph-db-1', verbose=False):
+def run_pipeline(config_path, sql_dir, container_name='db', verbose=False):
     """
-    Run the water obstacle pipeline with the boundary hexagon layer approach.
+    Run the water obstacle pipeline with the enhanced boundary hexagon layer approach.
     
     Args:
         config_path (str): Path to the configuration file
@@ -133,7 +132,7 @@ def run_pipeline(config_path, sql_dir, container_name='geo-graph-db-1', verbose=
             "04_create_terrain_grid_boundary_hexagon.sql",
             "04a_create_terrain_edges_hexagon.sql",
             "05_create_boundary_nodes_hexagon.sql",
-            "06_create_boundary_edges_hexagon.sql",
+            "06_create_boundary_edges_hexagon_enhanced.sql",  # Use the enhanced version
             "07_create_unified_boundary_graph_hexagon.sql"
         ]
         
@@ -170,23 +169,23 @@ def run_pipeline(config_path, sql_dir, container_name='geo-graph-db-1', verbose=
             elapsed_time = time.time() - start_time
             logger.info(f"Completed SQL script: {script} in {elapsed_time:.2f} seconds")
         
-        logger.info("Boundary hexagon layer pipeline completed successfully")
+        logger.info("Enhanced boundary hexagon layer pipeline completed successfully")
         return True
     
     except Exception as e:
-        logger.error(f"Error running boundary hexagon layer pipeline: {str(e)}")
+        logger.error(f"Error running enhanced boundary hexagon layer pipeline: {str(e)}")
         return False
 
 def main():
     """
     Main function to parse arguments and run the pipeline.
     """
-    parser = argparse.ArgumentParser(description='Run the water obstacle pipeline with the boundary hexagon layer approach')
+    parser = argparse.ArgumentParser(description='Run the water obstacle pipeline with the enhanced boundary hexagon layer approach')
     parser.add_argument('--config', type=str, default='epsg3857_pipeline/config/crs_standardized_config_boundary_hexagon.json',
                         help='Path to the configuration file')
     parser.add_argument('--sql-dir', type=str, default='epsg3857_pipeline/core/sql',
                         help='Path to the directory containing SQL scripts')
-    parser.add_argument('--container', type=str, default='geo-graph-db-1',
+    parser.add_argument('--container', type=str, default='db',
                         help='Name of the Docker container')
     parser.add_argument('--verbose', action='store_true',
                         help='Print verbose output')
