@@ -20,7 +20,7 @@ This document provides a reference for the status of each component in the EPSG:
 | Voronoi Obstacle Boundary | **STABLE** | 2025-04-26 | Uses Voronoi diagrams for natural connections between terrain and water | None | N/A |
 | Reversed Voronoi Obstacle Boundary | **STABLE** | 2025-04-27 | Uses reversed Voronoi approach for more natural connections | None | N/A |
 | Delaunay Triangulation | **EXPERIMENTAL** | 2025-04-22 | Uses Delaunay triangulation for terrain representation | Performance issues with large datasets | Standard Pipeline |
-| Boundary Hexagon Layer | **STABLE** | 2025-05-01 | Preserves hexagons at water boundaries for better connectivity and uses land portions of water hexagons to connect boundary nodes to water boundary nodes. Now includes terrain edges in the unified graph and direct connections from land portion nodes to land/boundary nodes. | None | N/A |
+| Boundary Hexagon Layer | **STABLE** | 2025-05-02 | Preserves hexagons at water boundaries for better connectivity and uses land portions of water hexagons to connect boundary nodes to water boundary nodes. Now includes terrain edges in the unified graph and enhanced connectivity between land portion nodes and land/boundary nodes. | None | N/A |
 
 ## Core Components
 
@@ -58,6 +58,7 @@ This document provides a reference for the status of each component in the EPSG:
 | run_water_obstacle_pipeline_boundary_hexagon.py | **STABLE** | 2025-04-25 | Boundary hexagon layer pipeline | None | N/A |
 | run_boundary_hexagon_pipeline.py | **STABLE** | 2025-04-28 | Boundary hexagon layer pipeline wrapper with integrated visualization | None | N/A |
 | run_boundary_hexagon_layer_pipeline.py | **STABLE** | 2025-04-30 | Enhanced boundary hexagon layer pipeline with land portions of water hexagons | None | N/A |
+| run_boundary_hexagon_layer_enhanced_pipeline.py | **STABLE** | 2025-05-02 | Enhanced boundary hexagon layer pipeline with improved land portion connectivity | None | N/A |
 | run_water_obstacle_pipeline_delaunay.py | **EXPERIMENTAL** | 2025-04-22 | Delaunay triangulation pipeline | Performance issues with large datasets | run_water_obstacle_pipeline_improved.py |
 
 ## SQL Files
@@ -80,6 +81,7 @@ This document provides a reference for the status of each component in the EPSG:
 | 05_create_boundary_nodes_hexagon.sql | **STABLE** | 2025-04-30 | Creates boundary nodes, water boundary nodes, and land portion nodes | None | N/A |
 | 06_create_boundary_edges_3857.sql | **STABLE** | 2025-04-28 | Creates boundary edges with directional filtering and bridge connections | None | N/A |
 | 06_create_boundary_edges_hexagon.sql | **STABLE** | 2025-05-01 | Creates connections between boundary nodes, land portion nodes, water boundary nodes, and land nodes | None | N/A |
+| 06_create_boundary_edges_hexagon_enhanced.sql | **STABLE** | 2025-05-02 | Enhanced version that creates more connections between land portion nodes and land/boundary nodes | None | N/A |
 | 07_create_unified_boundary_graph_hexagon.sql | **STABLE** | 2025-04-30 | Creates unified boundary graph for the boundary hexagon layer approach | None | N/A |
 | 07_create_unified_boundary_graph_3857.sql | **STABLE** | 2025-04-25 | Creates unified boundary graph | None | N/A |
 | 07_create_environmental_tables_3857.sql | **STABLE** | 2025-04-23 | Creates environmental tables | None | N/A |
@@ -131,16 +133,20 @@ This document provides a reference for the status of each component in the EPSG:
 | database_schema.md | **STABLE** | 2025-04-23 | Database schema documentation | None | N/A |
 | project_organization.md | **STABLE** | 2025-04-23 | Project structure overview | None | N/A |
 | water_edge_creation_proposal.md | **STABLE** | 2025-04-23 | Proposal for improved water edge creation | None | N/A |
-| water_boundary_approach.md | **STABLE** | 2025-04-23 | Documentation of water boundary approach | None | N/A |
-| direct_water_boundary_conversion.md | **STABLE** | 2025-04-24 | Documentation of direct water boundary conversion | None | N/A |
-| hexagon_obstacle_boundary_pipeline.md | **STABLE** | 2025-04-25 | Documentation of hexagon obstacle boundary approach | None | N/A |
-| voronoi_connection_strategy.md | **STABLE** | 2025-04-26 | Documentation of Voronoi-based connection strategy | None | N/A |
-| reversed_voronoi_connection_strategy.md | **STABLE** | 2025-04-27 | Documentation of Reversed Voronoi-based connection strategy | None | N/A |
+| water_boundary_approach.md | **DEPRECATED** | 2025-04-23 | Documentation of water boundary approach | Superseded by consolidated guide | pipeline_approaches_guide.md |
+| direct_water_boundary_conversion.md | **DEPRECATED** | 2025-04-24 | Documentation of direct water boundary conversion | Superseded by consolidated guide | pipeline_approaches_guide.md |
+| hexagon_obstacle_boundary_pipeline.md | **DEPRECATED** | 2025-04-25 | Documentation of hexagon obstacle boundary approach | Superseded by consolidated guide | pipeline_approaches_guide.md |
+| voronoi_connection_strategy.md | **DEPRECATED** | 2025-04-26 | Documentation of Voronoi-based connection strategy | Superseded by consolidated guide | connection_strategies_guide.md |
+| reversed_voronoi_connection_strategy.md | **DEPRECATED** | 2025-04-27 | Documentation of Reversed Voronoi-based connection strategy | Superseded by consolidated guide | connection_strategies_guide.md |
+| line_to_point_connection_strategy.md | **DEPRECATED** | 2025-04-25 | Documentation of Line-to-Point connection strategy | Superseded by consolidated guide | connection_strategies_guide.md |
+| connection_strategies_guide.md | **STABLE** | 2025-05-02 | Comprehensive guide to all connection strategies | None | N/A |
+| pipeline_approaches_guide.md | **STABLE** | 2025-05-02 | Comprehensive guide to all pipeline approaches | None | N/A |
 | boundary_hexagon_layer_implementation_plan.md | **STABLE** | 2025-04-25 | Documentation of boundary hexagon layer implementation | None | N/A |
 | boundary_hexagon_layer_approach.md | **STABLE** | 2025-04-30 | Comprehensive documentation of boundary hexagon layer approach | None | N/A |
 | unified_boundary_graph_enhancement_summary.md | **STABLE** | 2025-04-30 | Documentation of the unified boundary graph enhancement | None | N/A |
 | pipeline_comparison.md | **STABLE** | 2025-04-26 | Comparison of different pipeline approaches | None | N/A |
 | worklog.md | **STABLE** | 2025-04-26 | Development worklog | None | N/A |
 | test_plan.md | **STABLE** | 2025-04-22 | Test plan | None | N/A |
-| component_status.md | **STABLE** | 2025-05-01 | Component status documentation | None | N/A |
+| component_status.md | **STABLE** | 2025-05-02 | Component status documentation | None | N/A |
 | land_portion_land_connections_enhancement_summary.md | **STABLE** | 2025-05-01 | Documentation of land portion to land connections enhancement | None | N/A |
+| enhanced_land_portion_connectivity_summary.md | **STABLE** | 2025-05-02 | Documentation of enhanced land portion connectivity implementation | None | N/A |

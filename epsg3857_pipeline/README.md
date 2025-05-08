@@ -18,7 +18,7 @@ The project includes several pipeline approaches with different status levels:
 | Hexagon Obstacle Boundary | **STABLE** | Combines hexagonal grid with precise water obstacle boundaries | For better terrain representation with accurate water boundaries |
 | Voronoi Obstacle Boundary | **STABLE** | Uses Voronoi diagrams for natural connections between terrain and water | For optimal and evenly distributed connections to water boundaries |
 | Delaunay Triangulation | **EXPERIMENTAL** | Uses Delaunay triangulation for terrain representation | For more natural terrain representation (still under development) |
-| Boundary Hexagon Layer | **PLANNED** | Preserves hexagons at water boundaries for better connectivity | To address "white space" issues between terrain and water |
+| Boundary Hexagon Layer | **STABLE** | Preserves hexagons at water boundaries for better connectivity with enhanced land portion connectivity | For optimal connectivity between land portions and the rest of the terrain |
 
 ## Key Features
 
@@ -180,6 +180,12 @@ python epsg3857_pipeline/core/scripts/visualize_voronoi_obstacle_boundary.py --o
 
 # Visualize the Voronoi obstacle boundary with Voronoi cells
 python epsg3857_pipeline/core/scripts/visualize_voronoi_obstacle_boundary.py --show-voronoi --output voronoi_cells.png
+
+# Visualize the boundary hexagon layer
+python epsg3857_pipeline/core/scripts/visualize_boundary_hexagon_layer.py --output boundary_hexagon_layer.png
+
+# Visualize the unified boundary graph
+python epsg3857_pipeline/core/scripts/visualize_unified_boundary_graph.py --output unified_boundary_graph.png
 ```
 
 ## Pipeline Approaches in Detail
@@ -249,6 +255,31 @@ Key features:
 
 ```bash
 python epsg3857_pipeline/run_voronoi_obstacle_boundary_pipeline.py
+```
+
+### Boundary Hexagon Layer
+
+The boundary hexagon layer approach preserves hexagons at water boundaries for better connectivity and uses land portions of water hexagons to connect boundary nodes to water boundary nodes. It includes enhanced connectivity between land portion nodes and land/boundary nodes.
+
+Key features:
+- Preserves hexagons at water boundaries
+- Identifies land portions within water hexagons
+- Creates connections between boundary nodes, water boundary nodes, and land portion nodes
+- Enhanced connectivity between land portion nodes and land/boundary nodes
+- Unified boundary graph with terrain edges
+
+```bash
+# Run the boundary hexagon layer pipeline
+python epsg3857_pipeline/run_boundary_hexagon_layer_pipeline.py
+
+# Run the enhanced boundary hexagon layer pipeline with improved land portion connectivity
+python epsg3857_pipeline/run_boundary_hexagon_layer_enhanced_pipeline.py
+
+# Run with visualization
+python epsg3857_pipeline/run_boundary_hexagon_layer_pipeline.py --visualize
+
+# Run with custom parameters
+python epsg3857_pipeline/run_boundary_hexagon_layer_pipeline.py --config epsg3857_pipeline/config/boundary_hexagon_layer_config.json --verbose
 ```
 
 ### Delaunay Triangulation (Experimental)
@@ -437,13 +468,11 @@ For more detailed documentation, see:
 - [Database Schema](./docs/database_schema.md) - Detailed database schema documentation
 - [Project Organization](./docs/project_organization.md) - Overview of project structure and components
 - [Water Edge Creation Proposal](./docs/water_edge_creation_proposal.md) - Detailed proposal for improved water edge creation
-- [Water Boundary Approach](./docs/water_boundary_approach.md) - Detailed documentation of the water boundary approach
-- [Direct Water Boundary Conversion](./docs/direct_water_boundary_conversion.md) - Documentation of the direct water boundary conversion approach
+- [Pipeline Approaches Guide](./docs/pipeline_approaches_guide.md) - Comprehensive guide to all pipeline approaches (Standard, Water Boundary, Obstacle Boundary, etc.)
+- [Connection Strategies Guide](./docs/connection_strategies_guide.md) - Comprehensive guide to all connection strategies (Line-to-Point, Voronoi, Reversed Voronoi)
 - [Obstacle Boundary Implementation](./docs/obstacle_boundary_implementation.md) - Implementation details of the obstacle boundary approach
-- [Line-to-Point Connection Strategy](./docs/line_to_point_connection_strategy.md) - Documentation of the enhanced connection strategy for water boundaries
-- [Hexagon Obstacle Boundary Pipeline](./docs/hexagon_obstacle_boundary_pipeline.md) - Detailed documentation of the hexagon obstacle boundary approach
-- [Voronoi Connection Strategy](./docs/voronoi_connection_strategy.md) - Documentation of the Voronoi-based connection strategy for water boundaries
-- [Reversed Voronoi Connection Strategy](./docs/reversed_voronoi_connection_strategy.md) - Documentation of the Reversed Voronoi-based connection strategy
+- [Boundary Hexagon Layer Approach](./docs/boundary_hexagon_layer_approach.md) - Comprehensive documentation of the boundary hexagon layer approach
+- [Enhanced Land Portion Connectivity](./docs/enhanced_land_portion_connectivity_summary.md) - Documentation of enhanced land portion connectivity implementation
 - [Voronoi Connection Strategies Summary](./voronoi_connection_strategies_summary.md) - Comprehensive overview of different connection strategies
 - [Pipeline Comparison Scripts](./docs/pipeline_comparison_scripts.md) - Comprehensive reference for running different pipelines
 - [Development Worklog](./worklog.md) - Track development progress, issues, and solutions
