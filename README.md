@@ -70,6 +70,9 @@ pip install -r requirements.txt
 # Load OSM data and build the graph
 # (See docs/quick_start.md for detailed steps)
 
+# Run the current production pipeline
+python epsg3857_pipeline/run_boundary_hexagon_layer_enhanced_pipeline.py
+
 # Export a 1-hour drive GraphML slice (basic)
 python tools/export_slice.py slice \
        --lon -93.63 --lat 41.99 \
@@ -86,9 +89,7 @@ python tools/export_slice_enhanced_fixed.py \
 python visualize_graph.py isochrone_enhanced.graphml
 
 # Reset the database and rerun the pipeline (if needed)
-python scripts/reset_database.py --reset-all
-python scripts/run_pipeline.py  # Basic pipeline
-python scripts/run_pipeline_enhanced.py  # Enhanced pipeline with OSM attributes
+python epsg3857_pipeline/tools/database/reset_non_osm_tables.py
 ```
 
 For detailed instructions, see [Quick Start Guide](docs/quick_start.md).
@@ -103,6 +104,20 @@ For detailed instructions, see [Quick Start Guide](docs/quick_start.md).
 | 2c. Merge graphs | PostGIS | Union all edge tables into unified graph | Ensure unique node IDs by adding table prefixes before pgr_createTopology |
 | 3. Export to GraphML | Python 3.12, GeoAlchemy2, NetworkX | Read edges from database, create NetworkX graph, write to GraphML | Use dask-geopandas if edges > 50M rows; chunk by node ID ranges |
 
+## Project Structure
+
+The project is organized into the following directories:
+
+- `docs/` - Project documentation
+  - `architecture/` - System architecture documentation
+  - `pipelines/` - Pipeline-specific documentation
+- `epsg3857_pipeline/` - Main pipeline code
+  - `core/` - Core pipeline components
+  - `pipelines/` - Production pipeline scripts
+  - `tools/` - Utility tools for the pipeline
+- `logs/` - Log files from various components
+- `deprecated/` - Deprecated code and configuration files
+
 ## Documentation
 
 - [Quick Start Guide](docs/quick_start.md) - Get up and running quickly
@@ -113,6 +128,18 @@ For detailed instructions, see [Quick Start Guide](docs/quick_start.md).
 - [Water Edge Comparison](docs/water_edge_comparison.md) - Comparison of original vs. dissolved water edges
 - [Project Plan](docs/terrain_graph_project_plan.md) - Project timeline and deliverables
 - [Code Audit](docs/code_audit.md) - Analysis of existing codebase
+- [Architecture Documentation](docs/architecture/README.md) - System architecture documentation
+- [Pipeline Documentation](docs/pipelines/README.md) - Pipeline-specific documentation
+
+## Current Production Pipeline
+
+The current production pipeline is the Enhanced Boundary Hexagon Layer Pipeline, which can be run with:
+
+```bash
+python epsg3857_pipeline/run_boundary_hexagon_layer_enhanced_pipeline.py
+```
+
+This pipeline creates derived tables in PostGIS from loaded OSM data, using the hexagon boundary layer approach with enhanced connectivity between land_portion nodes and land/boundary nodes.
 
 ## Benchmark AOI Test Cases
 
