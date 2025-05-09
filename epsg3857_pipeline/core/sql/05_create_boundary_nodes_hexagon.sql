@@ -9,12 +9,12 @@
  */
 
 -- Drop existing tables if they exist
-DROP TABLE IF EXISTS boundary_nodes CASCADE;
-DROP TABLE IF EXISTS water_boundary_nodes CASCADE;
-DROP TABLE IF EXISTS land_portion_nodes CASCADE;
+DROP TABLE IF EXISTS s05_nodes_boundary CASCADE;
+DROP TABLE IF EXISTS s05_nodes_water_boundary CASCADE;
+DROP TABLE IF EXISTS s05_nodes_land_portion CASCADE;
 
 -- Create boundary nodes table
-CREATE TABLE boundary_nodes (
+CREATE TABLE s05_nodes_boundary (
     id SERIAL PRIMARY KEY,
     geom GEOMETRY(POINT, :storage_srid),
     node_type VARCHAR(20),
@@ -22,14 +22,14 @@ CREATE TABLE boundary_nodes (
 );
 
 -- Create water boundary nodes table
-CREATE TABLE water_boundary_nodes (
+CREATE TABLE s05_nodes_water_boundary (
     id SERIAL PRIMARY KEY,
     geom GEOMETRY(POINT, :storage_srid),
     node_type VARCHAR(20)
 );
 
 -- Create land portion nodes table
-CREATE TABLE land_portion_nodes (
+CREATE TABLE s05_nodes_land_portion (
     id SERIAL PRIMARY KEY,
     geom GEOMETRY(POINT, :storage_srid),
     node_type VARCHAR(20),
@@ -38,24 +38,24 @@ CREATE TABLE land_portion_nodes (
 
 -- Create boundary nodes from terrain grid
 -- Use DISTINCT ON to ensure we don't create duplicate boundary nodes
-INSERT INTO boundary_nodes (geom, node_type, hex_id)
+INSERT INTO s05_nodes_boundary (geom, node_type, hex_id)
 SELECT DISTINCT ON (ST_AsText(ST_SnapToGrid(ST_Centroid(t.geom), 0.001)))
     ST_Centroid(t.geom),
     'boundary',
     t.id
 FROM 
-    terrain_grid t
+    s04_grid_terrain t
 WHERE 
     t.hex_type = 'boundary';
 
 -- Create water boundary nodes along water obstacle boundaries
 -- Generate points along water obstacle boundaries at regular intervals
-INSERT INTO water_boundary_nodes (geom, node_type)
+INSERT INTO s05_nodes_water_boundary (geom, node_type)
 WITH water_boundaries AS (
     SELECT 
         ST_Boundary(geom) AS boundary_geom
     FROM 
-        water_obstacles
+        s03_water_obstacles
 ),
 boundary_points AS (
     SELECT 
@@ -70,14 +70,14 @@ FROM
     boundary_points;
 
 -- Create land portion nodes on the land portions of water hexagons
-INSERT INTO land_portion_nodes (geom, node_type, hex_id)
+INSERT INTO s05_nodes_land_portion (geom, node_type, hex_id)
 WITH land_portion_centroids AS (
     SELECT 
         ROW_NUMBER() OVER () AS temp_id,
         ST_Centroid(land_portion) AS centroid,
         water_hex_geom
     FROM 
-        water_hex_land_portions
+        s04_grid_water_land_portions
 ),
 land_portion_points AS (
     -- If the centroid is in water, find a point on the land portion
@@ -86,14 +86,14 @@ land_portion_points AS (
         CASE
             WHEN EXISTS (
                 SELECT 1
-                FROM water_obstacles wo
+                FROM s03_water_obstacles wo
                 WHERE ST_Contains(wo.geom, lpc.centroid)
             ) THEN (
                 -- Find a point on the land portion that's not in water
                 SELECT 
                     ST_PointOnSurface(whl.land_portion)
                 FROM 
-                    water_hex_land_portions whl
+                    s04_grid_water_land_portions whl
                 WHERE 
                     whl.water_hex_geom = lpc.water_hex_geom
             )
@@ -110,14 +110,14 @@ SELECT
 FROM 
     land_portion_points lpp
 JOIN 
-    terrain_grid t ON t.geom = lpp.water_hex_geom;
+    s04_grid_terrain t ON t.geom = lpp.water_hex_geom;
 
 -- Create spatial indexes
-CREATE INDEX boundary_nodes_geom_idx ON boundary_nodes USING GIST (geom);
-CREATE INDEX water_boundary_nodes_geom_idx ON water_boundary_nodes USING GIST (geom);
-CREATE INDEX land_portion_nodes_geom_idx ON land_portion_nodes USING GIST (geom);
+CREATE INDEX s05_nodes_boundary_geom_idx ON s05_nodes_boundary USING GIST (geom);
+CREATE INDEX s05_nodes_water_boundary_geom_idx ON s05_nodes_water_boundary USING GIST (geom);
+CREATE INDEX s05_nodes_land_portion_geom_idx ON s05_nodes_land_portion USING GIST (geom);
 
 -- Log the results
-SELECT 'Created ' || COUNT(*) || ' boundary nodes' FROM boundary_nodes;
-SELECT 'Created ' || COUNT(*) || ' water boundary nodes' FROM water_boundary_nodes;
-SELECT 'Created ' || COUNT(*) || ' land portion nodes' FROM land_portion_nodes;
+SELECT 'Created ' || COUNT(*) || ' boundary nodes' FROM s05_nodes_boundary;
+SELECT 'Created ' || COUNT(*) || ' water boundary nodes' FROM s05_nodes_water_boundary;
+SELECT 'Created ' || COUNT(*) || ' land portion nodes' FROM s05_nodes_land_portion;
