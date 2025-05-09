@@ -14,16 +14,16 @@
  */
 
 -- Drop existing tables if they exist
-DROP TABLE IF EXISTS boundary_boundary_edges CASCADE;
-DROP TABLE IF EXISTS boundary_land_portion_edges CASCADE;
-DROP TABLE IF EXISTS land_portion_water_boundary_edges CASCADE;
-DROP TABLE IF EXISTS water_boundary_water_boundary_edges CASCADE;
-DROP TABLE IF EXISTS boundary_water_boundary_edges CASCADE;
-DROP TABLE IF EXISTS land_portion_land_edges CASCADE;
-DROP TABLE IF EXISTS all_boundary_edges CASCADE;
+DROP TABLE IF EXISTS s06_edges_boundary_boundary CASCADE;
+DROP TABLE IF EXISTS s06_edges_boundary_land_portion CASCADE;
+DROP TABLE IF EXISTS s06_edges_land_portion_water_boundary CASCADE;
+DROP TABLE IF EXISTS s06_edges_water_boundary_water_boundary CASCADE;
+DROP TABLE IF EXISTS s06_edges_boundary_water_boundary CASCADE;
+DROP TABLE IF EXISTS s06_edges_land_portion_land CASCADE;
+DROP TABLE IF EXISTS s06_edges_all_boundary CASCADE;
 
 -- Create boundary-to-boundary edges table
-CREATE TABLE boundary_boundary_edges (
+CREATE TABLE s06_edges_boundary_boundary (
     id SERIAL PRIMARY KEY,
     start_node_id INTEGER,
     end_node_id INTEGER,
@@ -33,7 +33,7 @@ CREATE TABLE boundary_boundary_edges (
 );
 
 -- Create boundary-to-land-portion edges table
-CREATE TABLE boundary_land_portion_edges (
+CREATE TABLE s06_edges_boundary_land_portion (
     id SERIAL PRIMARY KEY,
     start_node_id INTEGER,
     end_node_id INTEGER,
@@ -43,7 +43,7 @@ CREATE TABLE boundary_land_portion_edges (
 );
 
 -- Create land-portion-to-water-boundary edges table
-CREATE TABLE land_portion_water_boundary_edges (
+CREATE TABLE s06_edges_land_portion_water_boundary (
     id SERIAL PRIMARY KEY,
     start_node_id INTEGER,
     end_node_id INTEGER,
@@ -53,7 +53,7 @@ CREATE TABLE land_portion_water_boundary_edges (
 );
 
 -- Create water-boundary-to-water-boundary edges table
-CREATE TABLE water_boundary_water_boundary_edges (
+CREATE TABLE s06_edges_water_boundary_water_boundary (
     id SERIAL PRIMARY KEY,
     start_node_id INTEGER,
     end_node_id INTEGER,
@@ -63,7 +63,7 @@ CREATE TABLE water_boundary_water_boundary_edges (
 );
 
 -- Create boundary-to-water-boundary edges table
-CREATE TABLE boundary_water_boundary_edges (
+CREATE TABLE s06_edges_boundary_water_boundary (
     id SERIAL PRIMARY KEY,
     start_node_id INTEGER,
     end_node_id INTEGER,
@@ -73,7 +73,7 @@ CREATE TABLE boundary_water_boundary_edges (
 );
 
 -- Create land-portion-to-land edges table
-CREATE TABLE land_portion_land_edges (
+CREATE TABLE s06_edges_land_portion_land (
     id SERIAL PRIMARY KEY,
     start_node_id INTEGER,
     end_node_id INTEGER,
@@ -83,7 +83,7 @@ CREATE TABLE land_portion_land_edges (
 );
 
 -- Create all boundary edges table
-CREATE TABLE all_boundary_edges (
+CREATE TABLE s06_edges_all_boundary (
     id SERIAL PRIMARY KEY,
     start_node_id INTEGER,
     end_node_id INTEGER,
@@ -96,7 +96,7 @@ CREATE TABLE all_boundary_edges (
 
 -- Create boundary-to-boundary edges
 -- Connect boundary nodes to other boundary nodes within a certain distance
-INSERT INTO boundary_boundary_edges (start_node_id, end_node_id, geom, length, cost)
+INSERT INTO s06_edges_boundary_boundary (start_node_id, end_node_id, geom, length, cost)
 SELECT 
     b1.id AS start_node_id,
     b2.id AS end_node_id,
@@ -104,15 +104,15 @@ SELECT
     ST_Length(ST_MakeLine(b1.geom, b2.geom)) AS length,
     ST_Length(ST_MakeLine(b1.geom, b2.geom)) AS cost
 FROM 
-    boundary_nodes b1
+    s05_nodes_boundary b1
 JOIN 
-    boundary_nodes b2 ON b1.id < b2.id
+    s05_nodes_boundary b2 ON b1.id < b2.id
 WHERE 
     ST_DWithin(b1.geom, b2.geom, :boundary_edge_max_length)
     -- Ensure the edge doesn't cross through water obstacles
     AND NOT EXISTS (
         SELECT 1
-        FROM water_obstacles wo
+        FROM s03_water_obstacles wo
         WHERE ST_Intersects(ST_MakeLine(b1.geom, b2.geom), wo.geom)
             AND NOT ST_Intersects(ST_Buffer(b1.geom, 1), wo.geom)
             AND NOT ST_Intersects(ST_Buffer(b2.geom, 1), wo.geom)
@@ -120,7 +120,7 @@ WHERE
 
 -- Create boundary-to-land-portion edges
 -- Connect boundary nodes to land portion nodes within a certain distance
-INSERT INTO boundary_land_portion_edges (start_node_id, end_node_id, geom, length, cost)
+INSERT INTO s06_edges_boundary_land_portion (start_node_id, end_node_id, geom, length, cost)
 SELECT 
     b.id AS start_node_id,
     lp.id AS end_node_id,
@@ -128,14 +128,14 @@ SELECT
     ST_Length(ST_MakeLine(b.geom, lp.geom)) AS length,
     ST_Length(ST_MakeLine(b.geom, lp.geom)) AS cost
 FROM 
-    boundary_nodes b
+    s05_nodes_boundary b
 JOIN 
-    land_portion_nodes lp ON ST_DWithin(b.geom, lp.geom, :boundary_edge_max_length)
+    s05_nodes_land_portion lp ON ST_DWithin(b.geom, lp.geom, :boundary_edge_max_length)
 WHERE 
     -- Ensure the edge doesn't cross through water obstacles
     NOT EXISTS (
         SELECT 1
-        FROM water_obstacles wo
+        FROM s03_water_obstacles wo
         WHERE ST_Intersects(ST_MakeLine(b.geom, lp.geom), wo.geom)
             AND NOT ST_Intersects(ST_Buffer(b.geom, 1), wo.geom)
             AND NOT ST_Intersects(ST_Buffer(lp.geom, 1), wo.geom)
@@ -143,7 +143,7 @@ WHERE
 
 -- Create land-portion-to-water-boundary edges
 -- Connect land portion nodes to water boundary nodes within a certain distance
-INSERT INTO land_portion_water_boundary_edges (start_node_id, end_node_id, geom, length, cost)
+INSERT INTO s06_edges_land_portion_water_boundary (start_node_id, end_node_id, geom, length, cost)
 SELECT 
     lp.id AS start_node_id,
     wb.id AS end_node_id,
@@ -151,14 +151,14 @@ SELECT
     ST_Length(ST_MakeLine(lp.geom, wb.geom)) AS length,
     ST_Length(ST_MakeLine(lp.geom, wb.geom)) * :water_speed_factor AS cost
 FROM 
-    land_portion_nodes lp
+    s05_nodes_land_portion lp
 JOIN 
-    water_boundary_nodes wb ON ST_DWithin(lp.geom, wb.geom, :boundary_edge_max_length)
+    s05_nodes_water_boundary wb ON ST_DWithin(lp.geom, wb.geom, :boundary_edge_max_length)
 WHERE 
     -- Limit the number of connections per land portion node
     wb.id IN (
         SELECT wb2.id
-        FROM water_boundary_nodes wb2
+        FROM s05_nodes_water_boundary wb2
         WHERE ST_DWithin(lp.geom, wb2.geom, :boundary_edge_max_length)
         ORDER BY ST_Distance(lp.geom, wb2.geom)
         LIMIT :max_connections_per_direction
@@ -167,13 +167,13 @@ WHERE
 -- Create water-boundary-to-water-boundary edges
 -- Connect water boundary nodes to adjacent nodes along the water obstacle boundary
 -- This creates a chain of nodes that follows the water boundary, rather than connecting all nodes to each other
-INSERT INTO water_boundary_water_boundary_edges (start_node_id, end_node_id, geom, length, cost)
+INSERT INTO s06_edges_water_boundary_water_boundary (start_node_id, end_node_id, geom, length, cost)
 WITH water_boundaries AS (
     -- Get all water obstacle boundaries
     SELECT 
         ST_Boundary(geom) AS boundary_geom
     FROM 
-        water_obstacles
+        s03_water_obstacles
 ),
 boundary_lines AS (
     -- Convert boundaries to linestrings
@@ -192,7 +192,7 @@ boundary_points AS (
         bl.line_geom,
         ST_LineLocatePoint(bl.line_geom, wb.geom) AS line_position
     FROM 
-        water_boundary_nodes wb
+        s05_nodes_water_boundary wb
     CROSS JOIN 
         boundary_lines bl
     WHERE 
@@ -205,7 +205,8 @@ ordered_points AS (
         geom,
         line_geom,
         line_position,
-        ROW_NUMBER() OVER (PARTITION BY line_geom ORDER BY line_position) AS position_rank
+        ROW_NUMBER() OVER (PARTITION BY line_geom ORDER BY line_position) AS position_rank,
+        COUNT(*) OVER (PARTITION BY line_geom) AS total_points
     FROM 
         boundary_points
 ),
@@ -223,6 +224,24 @@ adjacent_points AS (
         ordered_points op2 ON op1.line_geom = op2.line_geom AND op1.position_rank + 1 = op2.position_rank
     WHERE 
         ST_DWithin(op1.geom, op2.geom, :boundary_edge_max_length)
+    
+    UNION ALL
+    
+    -- Connect the last point back to the first point to close the loop
+    SELECT 
+        op_last.id AS start_id,
+        op_first.id AS end_id,
+        op_last.geom AS start_geom,
+        op_first.geom AS end_geom,
+        ST_MakeLine(op_last.geom, op_first.geom) AS edge_geom
+    FROM 
+        ordered_points op_last
+    JOIN 
+        ordered_points op_first ON op_last.line_geom = op_first.line_geom 
+                               AND op_last.position_rank = op_last.total_points 
+                               AND op_first.position_rank = 1
+    WHERE 
+        ST_DWithin(op_last.geom, op_first.geom, :boundary_edge_max_length)
 )
 SELECT 
     start_id,
@@ -235,7 +254,7 @@ FROM
 
 -- Create boundary-to-water-boundary edges
 -- Connect boundary nodes directly to water boundary nodes
-INSERT INTO boundary_water_boundary_edges (start_node_id, end_node_id, geom, length, cost)
+INSERT INTO s06_edges_boundary_water_boundary (start_node_id, end_node_id, geom, length, cost)
 SELECT 
     b.id AS start_node_id,
     wb.id AS end_node_id,
@@ -243,14 +262,14 @@ SELECT
     ST_Length(ST_MakeLine(b.geom, wb.geom)) AS length,
     ST_Length(ST_MakeLine(b.geom, wb.geom)) * :water_speed_factor AS cost
 FROM 
-    boundary_nodes b
+    s05_nodes_boundary b
 JOIN 
-    water_boundary_nodes wb ON ST_DWithin(b.geom, wb.geom, :boundary_edge_max_length)
+    s05_nodes_water_boundary wb ON ST_DWithin(b.geom, wb.geom, :boundary_edge_max_length)
 WHERE 
     -- Limit the number of connections per boundary node
     wb.id IN (
         SELECT wb2.id
-        FROM water_boundary_nodes wb2
+        FROM s05_nodes_water_boundary wb2
         WHERE ST_DWithin(b.geom, wb2.geom, :boundary_edge_max_length)
         ORDER BY ST_Distance(b.geom, wb2.geom)
         LIMIT :max_connections_per_direction
@@ -258,7 +277,7 @@ WHERE
     -- Ensure the edge doesn't cross through water obstacles
     AND NOT EXISTS (
         SELECT 1
-        FROM water_obstacles wo
+        FROM s03_water_obstacles wo
         WHERE ST_Intersects(ST_MakeLine(b.geom, wb.geom), wo.geom)
             AND NOT ST_Intersects(ST_Buffer(b.geom, 1), wo.geom)
             AND NOT ST_Intersects(ST_Buffer(wb.geom, 1), wo.geom)
@@ -266,7 +285,7 @@ WHERE
 
 -- Create land-portion-to-land-portion edges
 -- Connect land portion nodes to other land portion nodes
-INSERT INTO land_portion_land_edges (start_node_id, end_node_id, geom, length, cost)
+INSERT INTO s06_edges_land_portion_land (start_node_id, end_node_id, geom, length, cost)
 SELECT
     lp1.id AS start_node_id,
     lp2.id AS end_node_id,
@@ -274,15 +293,15 @@ SELECT
     ST_Length(ST_MakeLine(lp1.geom, lp2.geom)) AS length,
     ST_Length(ST_MakeLine(lp1.geom, lp2.geom)) / (5.0 * :land_speed_factor) AS cost
 FROM
-    land_portion_nodes lp1
+    s05_nodes_land_portion lp1
 JOIN
-    land_portion_nodes lp2 ON ST_DWithin(lp1.geom, lp2.geom, :max_land_portion_connection_distance)
+    s05_nodes_land_portion lp2 ON ST_DWithin(lp1.geom, lp2.geom, :max_land_portion_connection_distance)
 WHERE
     lp1.id < lp2.id
     AND (lp1.id % :land_portion_connection_modulo) = 0
     AND NOT EXISTS (
         SELECT 1
-        FROM water_obstacles wo
+        FROM s03_water_obstacles wo
         WHERE ST_Intersects(ST_MakeLine(lp1.geom, lp2.geom), wo.geom)
             AND NOT ST_Intersects(ST_Buffer(lp1.geom, 1), wo.geom)
             AND NOT ST_Intersects(ST_Buffer(lp2.geom, 1), wo.geom)
@@ -291,7 +310,7 @@ WHERE
 -- ENHANCED: Create land-portion-to-land/boundary edges
 -- Connect each land portion node to the closest land and boundary nodes
 -- This ensures better connectivity between land portions and the rest of the terrain
-INSERT INTO land_portion_land_edges (start_node_id, end_node_id, geom, length, cost)
+INSERT INTO s06_edges_land_portion_land (start_node_id, end_node_id, geom, length, cost)
 WITH land_boundary_nodes AS (
     -- Get all land and boundary nodes
     SELECT 
@@ -299,7 +318,7 @@ WITH land_boundary_nodes AS (
         geom, 
         hex_type AS node_type
     FROM 
-        terrain_grid_points
+        s04_grid_terrain_points
     WHERE 
         hex_type IN ('land', 'boundary')
 ),
@@ -314,7 +333,7 @@ closest_nodes AS (
         -- Rank nodes by distance for each land portion node
         ROW_NUMBER() OVER (PARTITION BY lp.id ORDER BY ST_Distance(lp.geom, lb.geom)) AS rank
     FROM 
-        land_portion_nodes lp
+        s05_nodes_land_portion lp
     CROSS JOIN 
         land_boundary_nodes lb
     WHERE 
@@ -322,7 +341,7 @@ closest_nodes AS (
         -- Ensure the edge doesn't cross through water obstacles
         AND NOT EXISTS (
             SELECT 1
-            FROM water_obstacles wo
+            FROM s03_water_obstacles wo
             WHERE ST_Intersects(ST_MakeLine(lp.geom, lb.geom), wo.geom)
                 AND NOT ST_Intersects(ST_Buffer(lp.geom, 1), wo.geom)
                 AND NOT ST_Intersects(ST_Buffer(lb.geom, 1), wo.geom)
@@ -341,7 +360,7 @@ WHERE
     rank <= 5;  -- Connect to 5 closest land/boundary nodes instead of just 2
 
 -- Combine all edges into a single table
-INSERT INTO all_boundary_edges (start_node_id, end_node_id, start_node_type, end_node_type, geom, length, cost)
+INSERT INTO s06_edges_all_boundary (start_node_id, end_node_id, start_node_type, end_node_type, geom, length, cost)
 -- Boundary-to-boundary edges
 SELECT 
     e.start_node_id,
@@ -352,7 +371,7 @@ SELECT
     e.length,
     e.cost
 FROM 
-    boundary_boundary_edges e
+    s06_edges_boundary_boundary e
 UNION ALL
 -- Boundary-to-land-portion edges
 SELECT 
@@ -364,7 +383,7 @@ SELECT
     e.length,
     e.cost
 FROM 
-    boundary_land_portion_edges e
+    s06_edges_boundary_land_portion e
 UNION ALL
 -- Land-portion-to-water-boundary edges
 SELECT 
@@ -376,7 +395,7 @@ SELECT
     e.length,
     e.cost
 FROM 
-    land_portion_water_boundary_edges e
+    s06_edges_land_portion_water_boundary e
 UNION ALL
 -- Water-boundary-to-water-boundary edges
 SELECT 
@@ -388,7 +407,7 @@ SELECT
     e.length,
     e.cost
 FROM 
-    water_boundary_water_boundary_edges e
+    s06_edges_water_boundary_water_boundary e
 UNION ALL
 -- Boundary-to-water-boundary edges
 SELECT 
@@ -400,7 +419,7 @@ SELECT
     e.length,
     e.cost
 FROM 
-    boundary_water_boundary_edges e
+    s06_edges_boundary_water_boundary e
 UNION ALL
 -- Land-portion-to-land edges
 SELECT
@@ -412,11 +431,11 @@ SELECT
     e.length,
     e.cost
 FROM
-    land_portion_land_edges e
+    s06_edges_land_portion_land e
 WHERE
     EXISTS (
         SELECT 1
-        FROM terrain_grid_points t
+        FROM s04_grid_terrain_points t
         WHERE t.id = e.end_node_id AND t.hex_type IN ('land', 'boundary')
     )
 UNION ALL
@@ -430,28 +449,28 @@ SELECT
     e.length,
     e.cost
 FROM
-    land_portion_land_edges e
+    s06_edges_land_portion_land e
 WHERE
     EXISTS (
         SELECT 1
-        FROM land_portion_nodes lp
+        FROM s05_nodes_land_portion lp
         WHERE lp.id = e.end_node_id
     );
 
 -- Create spatial indexes
-CREATE INDEX boundary_boundary_edges_geom_idx ON boundary_boundary_edges USING GIST (geom);
-CREATE INDEX boundary_land_portion_edges_geom_idx ON boundary_land_portion_edges USING GIST (geom);
-CREATE INDEX land_portion_water_boundary_edges_geom_idx ON land_portion_water_boundary_edges USING GIST (geom);
-CREATE INDEX water_boundary_water_boundary_edges_geom_idx ON water_boundary_water_boundary_edges USING GIST (geom);
-CREATE INDEX boundary_water_boundary_edges_geom_idx ON boundary_water_boundary_edges USING GIST (geom);
-CREATE INDEX land_portion_land_edges_geom_idx ON land_portion_land_edges USING GIST (geom);
-CREATE INDEX all_boundary_edges_geom_idx ON all_boundary_edges USING GIST (geom);
+CREATE INDEX boundary_boundary_edges_geom_idx ON s06_edges_boundary_boundary USING GIST (geom);
+CREATE INDEX boundary_land_portion_edges_geom_idx ON s06_edges_boundary_land_portion USING GIST (geom);
+CREATE INDEX land_portion_water_boundary_edges_geom_idx ON s06_edges_land_portion_water_boundary USING GIST (geom);
+CREATE INDEX water_boundary_water_boundary_edges_geom_idx ON s06_edges_water_boundary_water_boundary USING GIST (geom);
+CREATE INDEX boundary_water_boundary_edges_geom_idx ON s06_edges_boundary_water_boundary USING GIST (geom);
+CREATE INDEX land_portion_land_edges_geom_idx ON s06_edges_land_portion_land USING GIST (geom);
+CREATE INDEX all_boundary_edges_geom_idx ON s06_edges_all_boundary USING GIST (geom);
 
 -- Log the results
-SELECT 'Created ' || COUNT(*) || ' boundary-to-boundary edges' FROM boundary_boundary_edges;
-SELECT 'Created ' || COUNT(*) || ' boundary-to-land-portion edges' FROM boundary_land_portion_edges;
-SELECT 'Created ' || COUNT(*) || ' land-portion-to-water-boundary edges' FROM land_portion_water_boundary_edges;
-SELECT 'Created ' || COUNT(*) || ' water-boundary-to-water-boundary edges' FROM water_boundary_water_boundary_edges;
-SELECT 'Created ' || COUNT(*) || ' boundary-to-water-boundary edges' FROM boundary_water_boundary_edges;
-SELECT 'Created ' || COUNT(*) || ' land-portion-to-land edges' FROM land_portion_land_edges;
-SELECT 'Created ' || COUNT(*) || ' total boundary edges' FROM all_boundary_edges;
+SELECT 'Created ' || COUNT(*) || ' boundary-to-boundary edges' FROM s06_edges_boundary_boundary;
+SELECT 'Created ' || COUNT(*) || ' boundary-to-land-portion edges' FROM s06_edges_boundary_land_portion;
+SELECT 'Created ' || COUNT(*) || ' land-portion-to-water-boundary edges' FROM s06_edges_land_portion_water_boundary;
+SELECT 'Created ' || COUNT(*) || ' water-boundary-to-water-boundary edges' FROM s06_edges_water_boundary_water_boundary;
+SELECT 'Created ' || COUNT(*) || ' boundary-to-water-boundary edges' FROM s06_edges_boundary_water_boundary;
+SELECT 'Created ' || COUNT(*) || ' land-portion-to-land edges' FROM s06_edges_land_portion_land;
+SELECT 'Created ' || COUNT(*) || ' total boundary edges' FROM s06_edges_all_boundary;
